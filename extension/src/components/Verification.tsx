@@ -12,7 +12,7 @@ interface VerificationProps {
 }
 
 export const Verification = ({ data }: VerificationProps) => {
-  // Console log whenever new data comes in
+  
   if (data) {
     console.log('🤖 AI ANALYSIS READY - Full content received:', data);
     console.log('📋 Title:', data.title);

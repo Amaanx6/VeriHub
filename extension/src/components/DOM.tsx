@@ -71,8 +71,8 @@ export function DOM({ onAnalysisReady }: DOMProps) {
         return null;
       })
       .filter((source): source is string => source !== null)
-      .filter((source, index, arr) => arr.indexOf(source) === index) // Remove duplicates
-      .slice(0, 15); // Limit to prevent overwhelming data
+      .filter((source, index, arr) => arr.indexOf(source) === index) 
+      .slice(0, 15); 
 
     const domain = currentDomain;
 
@@ -140,12 +140,12 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   const analyzeContent = () => {
     if (!verificationData) return;
     
-    // Get clean content for AI analysis
+    
     const analysisData = verificationData.exportForAnalysis();
     
     console.log('🔍 DOM COMPONENT: Sending clean content to AI for analysis:', analysisData);
     
-    // Send to parent component for AI processing
+    
     onAnalysisReady?.(analysisData);
     
     alert(`Clean content extracted for AI analysis!\n\nTitle: ${analysisData.title}\nContent: ${analysisData.fullContent.length} characters\nSources: ${analysisData.sources.length}\n\nAI can now analyze this for misinformation!`);
