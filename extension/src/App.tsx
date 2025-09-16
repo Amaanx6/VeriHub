@@ -21,11 +21,19 @@ function App() {
   };
 
   return (
-    <div className='w-[450px] h-[600px] flex flex-col'>
-      <DOM onAnalysisReady={handleAnalysisReady} />
-      <Verification data={analysisData} />
+    <div className="w-[450px] h-[600px] flex flex-col border">
+      {/* DOM component takes half the height and scrolls */}
+      <div className="flex-1 overflow-auto border-b">
+        <DOM onAnalysisReady={handleAnalysisReady} />
+      </div>
+
+      {/* Verification component takes remaining space and scrolls */}
+      <div className="flex-1 overflow-auto">
+        <Verification data={analysisData} />
+      </div>
     </div>
   );
 }
+
 
 export default App;
