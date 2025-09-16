@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "version": "1.0.0",
+  "name": "VeriHub",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "icons": {
+    "16": "veri.png",
+    "32": "veri.png",
+    "48": "veri.png",
+    "128": "veri.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
