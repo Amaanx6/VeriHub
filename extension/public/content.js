@@ -1,6 +1,6 @@
-// content.js - Enhanced DOM extraction and highlighting for VeriHub extension
+// content.js - DOM extraction and highlighting for VeriHub extension
 (() => {
-  console.log('🔍 VeriHub content script loaded on:', window.location.href);
+  console.log('VeriHub content script loaded on:', window.location.href);
 
   // Store highlighted elements for cleanup
   let highlightedElements = [];
@@ -44,7 +44,7 @@
       
       return htmlString;
     } catch (error) {
-      console.error('❌ Error processing DOM:', error);
+      console.error('Error processing DOM:', error);
       // Fallback to simple extraction
       return document.documentElement.outerHTML;
     }
@@ -101,7 +101,7 @@
         max-width: 300px !important;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
         line-height: 1.4 !important;
-        pointer-events: none !important;
+        pointer-events: auto !important;
         opacity: 0 !important;
         transform: translateY(10px) !important;
         transition: opacity 0.2s ease, transform 0.2s ease !important;
@@ -162,7 +162,7 @@
     document.head.appendChild(style);
   };
 
-  // Create tooltip element
+  // Create tooltip element with hover events
   const createTooltip = (issue) => {
     if (tooltipElement) {
       tooltipElement.remove();
@@ -180,6 +180,25 @@
         <strong>Correction:</strong> ${issue.correction}
       </div>
     `;
+
+    // Add hover events to tooltip itself
+    let hideTimeout;
+    
+    tooltipElement.addEventListener('mouseenter', () => {
+      clearTimeout(hideTimeout);
+    });
+
+    tooltipElement.addEventListener('mouseleave', () => {
+      if (tooltipElement) {
+        tooltipElement.classList.remove('show');
+        setTimeout(() => {
+          if (tooltipElement) {
+            tooltipElement.remove();
+            tooltipElement = null;
+          }
+        }, 200);
+      }
+    });
 
     document.body.appendChild(tooltipElement);
     return tooltipElement;
@@ -210,12 +229,8 @@
 
   // Find and highlight text in the DOM
   const highlightText = (searchText, issue) => {
-    // Clean up previous highlights first
-    cleanupHighlights();
-
-    // Create a more flexible search pattern
     const searchWords = searchText.toLowerCase().trim().split(/\s+/);
-    const minWordMatch = Math.max(2, Math.floor(searchWords.length * 0.6)); // Match at least 60% of words
+    const minWordMatch = Math.max(2, Math.floor(searchWords.length * 0.6));
 
     // Find all text nodes
     const walker = document.createTreeWalker(
@@ -223,7 +238,6 @@
       NodeFilter.SHOW_TEXT,
       {
         acceptNode: function(node) {
-          // Skip script, style, and already highlighted elements
           const parent = node.parentElement;
           if (!parent) return NodeFilter.FILTER_REJECT;
           
@@ -237,7 +251,6 @@
             return NodeFilter.FILTER_REJECT;
           }
           
-          // Only consider nodes with substantial text
           const text = node.textContent.trim();
           return text.length > 10 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         }
@@ -271,34 +284,38 @@
         highlightedElements.push(highlight);
 
         // Add hover events
+        let showTimeout;
         let hideTimeout;
 
-        highlight.addEventListener('mouseenter', (e) => {
+        const showTooltip = () => {
           clearTimeout(hideTimeout);
           const tooltip = createTooltip(issue);
           positionTooltip(tooltip, highlight);
           
-          // Small delay to show tooltip
-          setTimeout(() => {
+          showTimeout = setTimeout(() => {
             if (tooltip && tooltip.parentNode) {
               tooltip.classList.add('show');
             }
-          }, 50);
-        });
+          }, 100);
+        };
 
-        highlight.addEventListener('mouseleave', () => {
+        const hideTooltip = () => {
+          clearTimeout(showTimeout);
           if (tooltipElement) {
             tooltipElement.classList.remove('show');
             hideTimeout = setTimeout(() => {
-              if (tooltipElement) {
+              if (tooltipElement && !tooltipElement.matches(':hover')) {
                 tooltipElement.remove();
                 tooltipElement = null;
               }
-            }, 200);
+            }, 300);
           }
-        });
+        };
 
-        console.log(`✅ Highlighted: "${searchText.substring(0, 50)}..." with ${matchingWords.length} matching words`);
+        highlight.addEventListener('mouseenter', showTooltip);
+        highlight.addEventListener('mouseleave', hideTooltip);
+
+        console.log(`Highlighted: "${searchText.substring(0, 50)}..." with ${matchingWords.length} matching words`);
         break; // Only highlight first match to avoid duplicates
       }
     }
@@ -326,7 +343,7 @@
 
   // Handle highlighting false claims
   const handleHighlightFalseClaims = (data) => {
-    console.log('🎯 Starting to highlight false claims:', data.issues.length);
+    console.log('Starting to highlight false claims:', data.issues.length);
     
     // Inject styles
     injectStyles();
@@ -336,16 +353,16 @@
     
     // Highlight each issue
     data.issues.forEach((issue, index) => {
-      console.log(`📍 Highlighting claim ${index + 1}:`, issue.claim.substring(0, 100) + '...');
+      console.log(`Highlighting claim ${index + 1}:`, issue.claim.substring(0, 100) + '...');
       highlightText(issue.claim, issue);
     });
 
-    console.log(`✅ Highlighting complete. ${highlightedElements.length} elements highlighted.`);
+    console.log(`Highlighting complete. ${highlightedElements.length} elements highlighted.`);
   };
 
-  // Listen for messages from the popup
+  // Listen for messages from the popup/extension
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('📨 Content script received message:', request.type);
+    console.log('Content script received message:', request.type);
     
     if (request.type === "GET_DOM") {
       try {
@@ -359,7 +376,7 @@
           length: domString.length
         };
         
-        console.log('✅ Sending DOM response:', {
+        console.log('Sending DOM response:', {
           length: response.length,
           domain: response.domain,
           title: response.title?.substring(0, 50) + '...'
@@ -367,7 +384,7 @@
         
         sendResponse(response);
       } catch (error) {
-        console.error('❌ Error in GET_DOM handler:', error);
+        console.error('Error in GET_DOM handler:', error);
         sendResponse({
           success: false,
           error: error.message,
@@ -383,7 +400,7 @@
         handleHighlightFalseClaims(request.data);
         sendResponse({ success: true });
       } catch (error) {
-        console.error('❌ Error highlighting claims:', error);
+        console.error('Error highlighting claims:', error);
         sendResponse({ success: false, error: error.message });
       }
       
@@ -399,19 +416,29 @@
     return false;
   });
 
-  // Signal that content script is ready
-  const signalReady = () => {
+  // Signal that content script is ready and auto-trigger analysis
+  const signalReadyAndAnalyze = () => {
     try {
       chrome.runtime.sendMessage({
         type: 'CONTENT_SCRIPT_READY',
         url: window.location.href,
-        title: document.title
+        title: document.title,
+        autoAnalyze: true // Signal that we want auto-analysis
       }).catch(err => {
-        console.log('📤 Could not signal ready (popup not open)');
+        console.log('Could not signal ready (popup not open, this is normal)');
       });
     } catch (error) {
-      console.log('📤 Extension context not available for ready signal');
+      console.log('Extension context not available for ready signal');
     }
+  };
+
+  // Auto-trigger analysis when page loads
+  const startAutoAnalysis = () => {
+    // Wait a bit for the page to settle, then trigger analysis
+    setTimeout(() => {
+      console.log('Auto-triggering VeriHub analysis...');
+      signalReadyAndAnalyze();
+    }, 2000); // 2 second delay
   };
 
   // Cleanup on page navigation
@@ -419,19 +446,12 @@
     cleanupHighlights();
   });
 
-  // Wait for page to be fully loaded before signaling ready
+  // Start auto-analysis when page is ready
   if (document.readyState === 'complete') {
-    signalReady();
+    startAutoAnalysis();
   } else {
-    window.addEventListener('load', signalReady);
+    window.addEventListener('load', startAutoAnalysis);
   }
 
-  // Also handle DOM content loaded for faster response
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('📄 DOM content loaded');
-    });
-  }
-
-  console.log('🚀 VeriHub content script fully initialized');
+  console.log('VeriHub content script fully initialized');
 })();

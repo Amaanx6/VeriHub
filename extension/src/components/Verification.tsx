@@ -31,10 +31,11 @@ export const Verification = ({ data }: VerificationProps) => {
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lastAnalyzedData, setLastAnalyzedData] = useState<string>("");
 
-  // Initialize Gemini AI directly in frontend (unsafe!)
+  
   const ai = new GoogleGenAI({
-    apiKey: "AIzaSyDw3gZLfiDz3-TVSxsY0HjekOdzobiYsNA", // exposed key (unsafe)
+    apiKey: "AIzaSyBjx2ds3bkrpq_A9RWK64OxzO99r06bga0", 
   });
 
   const createPrompt = (data: AnalysisData): string => `
@@ -77,12 +78,20 @@ Instructions:
     if (!data?.pageUrl) return;
 
     try {
+      // Use any type to avoid TypeScript errors with chrome APIs
+      const chromeApi = (window as any).chrome;
+      
+      if (!chromeApi?.tabs) {
+        console.log('Chrome extension APIs not available');
+        return;
+      }
+
       // Get the current active tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chromeApi.tabs.query({ active: true, currentWindow: true });
       
       if (tab?.id) {
         // Send the verification results to content script
-        await chrome.tabs.sendMessage(tab.id, {
+        await chromeApi.tabs.sendMessage(tab.id, {
           type: "HIGHLIGHT_FALSE_CLAIMS",
           data: {
             issues: results.issues,
@@ -100,6 +109,15 @@ Instructions:
   const sendToAI = async (data: AnalysisData) => {
     if (!data) return;
 
+    // Create a content hash to avoid re-analyzing same content
+    const contentHash = btoa(data.fullContent.substring(0, 1000)).substring(0, 50);
+    
+    // Skip if same content was already analyzed
+    if (contentHash === lastAnalyzedData) {
+      console.log('🔄 Skipping AI analysis - same content already analyzed');
+      return;
+    }
+
     setLoading(true);
     setError("");
     setVerificationResult(null);
@@ -107,8 +125,9 @@ Instructions:
     try {
       const prompt = createPrompt(data);
 
+      console.log('🤖 Sending request to Gemini AI...');
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-pro",
         contents: prompt,
       });
 
@@ -116,6 +135,7 @@ Instructions:
 
       const result = parseAIResponse(response.text);
       setVerificationResult(result);
+      setLastAnalyzedData(contentHash);
 
       // Send results to content script for highlighting
       if (result.issues.length > 0) {
