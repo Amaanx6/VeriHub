@@ -1,3 +1,4 @@
+// Updated DOM component with pending analysis check
 import { useEffect, useState } from "react";
 
 interface DomResponse {
@@ -36,21 +37,58 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   //@ts-ignore
   const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState<string>("");
   const [analysisCount, setAnalysisCount] = useState<number>(0);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   // Rate limiting - max 3 analyses per minute
   const MAX_ANALYSES_PER_MINUTE = 3;
   const analysisTimestamps = useState<number[]>([])[0];
 
+  // Debug logging
+  const addDebug = (message: string) => {
+    const time = new Date().toLocaleTimeString();
+    setDebugInfo(prev => [...prev.slice(-8), `${time}: ${message}`]);
+    console.log(`DOM DEBUG: ${message}`);
+  };
+
+  // Listen for auto-trigger events
+  useEffect(() => {
+    const handleAutoTrigger = () => {
+      addDebug('Auto-trigger event received');
+      // Give a small delay to ensure verificationData is loaded
+      setTimeout(() => {
+        if (verificationData) {
+          addDebug('Auto-trigger: calling triggerAnalysis()');
+          triggerAnalysis();
+        } else {
+          addDebug('Auto-trigger: no verification data yet, will retry...');
+          // Retry after a longer delay if data isn't ready yet
+          setTimeout(() => {
+            if (verificationData) {
+              addDebug('Auto-trigger retry: calling triggerAnalysis()');
+              triggerAnalysis();
+            }
+          }, 1000);
+        }
+      }, 200);
+    };
+
+    window.addEventListener('triggerAnalysis', handleAutoTrigger);
+    
+    return () => {
+      window.removeEventListener('triggerAnalysis', handleAutoTrigger);
+    };
+  }, [verificationData]);
+
   // Check if analysis should be performed (rate limiting)
   const canAnalyze = () => {
     const now = Date.now();
     const oneMinuteAgo = now - 60000;
-    
+   
     // Remove old timestamps
     const recentTimestamps = analysisTimestamps.filter(timestamp => timestamp > oneMinuteAgo);
     analysisTimestamps.length = 0;
     analysisTimestamps.push(...recentTimestamps);
-    
+   
     return analysisTimestamps.length < MAX_ANALYSES_PER_MINUTE;
   };
 
@@ -63,38 +101,38 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   // Check if content has changed significantly
   const hasContentChanged = (newData: VerificationData) => {
     if (!verificationData) return true;
-    
+   
     // Check URL change
     if (newData.url !== verificationData.url) return true;
-    
+   
     // Check content length change (more than 10%)
     const lengthDiff = Math.abs(newData.content.length - verificationData.content.length);
     const lengthChangePercent = lengthDiff / verificationData.content.length;
     if (lengthChangePercent > 0.1) return true;
-    
+   
     // Check title change
     if (newData.title !== verificationData.title) return true;
-    
+   
     return false;
   };
 
   const extractVerificationData = (htmlString: string, pageUrl: string, pageTitle: string): VerificationData => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, 'text/html');
-    
+   
     // Remove unwanted elements (scripts, ads, navigation)
     const unwantedElements = doc.querySelectorAll('script, style, nav, header, footer, .ad, .advertisement, .sidebar, .menu, .social-share, .comments');
     unwantedElements.forEach(el => el.remove());
-    
+   
     // Get main content - prioritize article/main content areas
     const contentSelectors = ['article', 'main', '.content', '.post', '.article-body', '.story-body'];
     let mainContent = null;
-    
+   
     for (const selector of contentSelectors) {
       mainContent = doc.querySelector(selector);
       if (mainContent) break;
     }
-    
+   
     // Fallback to body if no main content found
     const contentArea = mainContent || doc.body;
     const content = contentArea?.textContent?.replace(/\s+/g, ' ').trim() || '';
@@ -102,7 +140,7 @@ export function DOM({ onAnalysisReady }: DOMProps) {
     // Extract sources (external domains only)
     const links = Array.from(doc.querySelectorAll('a[href]'));
     const currentDomain = pageUrl ? new URL(pageUrl).hostname.replace('www.', '') : '';
-    
+   
     const sources = links
       .map(link => {
         const href = link.getAttribute('href') || '';
@@ -116,8 +154,8 @@ export function DOM({ onAnalysisReady }: DOMProps) {
         return null;
       })
       .filter((source): source is string => source !== null)
-      .filter((source, index, arr) => arr.indexOf(source) === index) 
-      .slice(0, 15); 
+      .filter((source, index, arr) => arr.indexOf(source) === index)
+      .slice(0, 15);
 
     const domain = currentDomain;
 
@@ -141,17 +179,18 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   const fetchContent = async () => {
     setLoading(true);
     setError("");
-    
+    addDebug("Starting content fetch...");
+   
     try {
       // Use any type to avoid TypeScript errors with chrome APIs
       const chromeApi = (window as any).chrome;
-      
+     
       if (!chromeApi?.tabs) {
         throw new Error("Chrome extension APIs not available");
       }
 
       const tabs = await chromeApi.tabs.query({ active: true, currentWindow: true });
-      
+     
       if (tabs[0]?.id) {
         const response: DomResponse = await new Promise((resolve, reject) => {
           chromeApi.tabs.sendMessage(
@@ -168,65 +207,118 @@ export function DOM({ onAnalysisReady }: DOMProps) {
             }
           );
         });
-        
+       
         if (response?.dom) {
           const verification = extractVerificationData(
-            response.dom, 
-            response.url || tabs[0].url || "", 
+            response.dom,
+            response.url || tabs[0].url || "",
             response.title || tabs[0].title || ""
           );
-          
+         
           // Only update if content has actually changed
           if (hasContentChanged(verification)) {
-            console.log('📄 Content changed, updating verification data');
+            addDebug(`Content changed, updating verification data for: ${verification.domain}`);
             setVerificationData(verification);
             setLastAnalyzedUrl(verification.url);
           } else {
-            console.log('📄 Content unchanged, skipping update');
+            addDebug('Content unchanged, skipping update');
           }
         } else {
           setError("No content received");
+          addDebug("No DOM content received from content script");
         }
       } else {
         setError("No active tab found");
+        addDebug("No active tab found");
       }
     } catch (err) {
-      setError(`Error: ${err instanceof Error ? err.message : 'Failed to get content'}`);
+      const errorMsg = `Error: ${err instanceof Error ? err.message : 'Failed to get content'}`;
+      setError(errorMsg);
+      addDebug(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  // AUTO-ANALYZE content when verification data is ready - THIS IS THE KEY FIX
+  // Check for pending analysis from background script
+  const checkPendingAnalysis = async () => {
+    try {
+      const chromeApi = (window as any).chrome;
+      if (!chromeApi?.runtime) return;
+
+      const response = await chromeApi.runtime.sendMessage({
+        type: 'CHECK_PENDING_ANALYSIS'
+      });
+
+      if (response?.hasPending && verificationData) {
+        addDebug(`Pending analysis found for: ${response.data.url}`);
+        if (response.data.url === verificationData.url) {
+          addDebug('URL matches current page, triggering analysis');
+          triggerAnalysis();
+        }
+      }
+    } catch (error) {
+      addDebug('No pending analysis or popup not available');
+    }
+  };
+
+  // Listen for direct analysis triggers
   useEffect(() => {
+    const handleMessage = (request: any) => {
+      if (request.type === 'TRIGGER_ANALYSIS_DIRECT') {
+        addDebug('Received direct analysis trigger from background');
+        if (verificationData && request.url === verificationData.url) {
+          addDebug('URL matches, triggering analysis');
+          triggerAnalysis();
+        }
+      }
+    };
+
+    const chromeApi = (window as any).chrome;
+    if (chromeApi?.runtime?.onMessage) {
+      chromeApi.runtime.onMessage.addListener(handleMessage);
+    }
+
+    return () => {
+      if (chromeApi?.runtime?.onMessage) {
+        chromeApi.runtime.onMessage.removeListener(handleMessage);
+      }
+    };
+  }, [verificationData]);
+
+  // Trigger analysis (manual or from webpage popup)
+  const triggerAnalysis = () => {
+    addDebug('🚀 triggerAnalysis() called');
+    console.log('🚀 DOM triggerAnalysis called');
+    
     if (verificationData && onAnalysisReady && canAnalyze()) {
-      console.log('🔍 DOM COMPONENT: Auto-triggering analysis...');
+      addDebug('✅ All conditions met, starting analysis...');
+      console.log('✅ DOM: All conditions met, calling onAnalysisReady');
       setAnalyzing(true);
       recordAnalysis();
       
       const analysisData = verificationData.exportForAnalysis();
+      addDebug(`📤 Calling onAnalysisReady with data for: ${analysisData.domain}`);
+      console.log('📤 DOM calling onAnalysisReady with:', analysisData);
       onAnalysisReady(analysisData);
       
       // Set analyzing to false after a delay
       setTimeout(() => setAnalyzing(false), 3000);
+    } else if (!verificationData) {
+      addDebug('❌ Cannot trigger analysis: No verification data');
+      console.log('❌ DOM: No verification data');
+    } else if (!onAnalysisReady) {
+      addDebug('❌ Cannot trigger analysis: No callback function');
+      console.log('❌ DOM: No onAnalysisReady callback');
+    } else if (!canAnalyze()) {
+      addDebug('❌ Cannot trigger analysis: Rate limit exceeded');
+      console.log('❌ DOM: Rate limit exceeded');
     }
-  }, [verificationData, onAnalysisReady]); // This will trigger auto-analysis
-
-  const analyzeContent = () => {
-    if (!verificationData) return;
-    
-    const analysisData = verificationData.exportForAnalysis();
-    
-    console.log('🔍 DOM COMPONENT: Manual analysis triggered:', analysisData);
-    
-    onAnalysisReady?.(analysisData);
-    
-    alert(`Clean content extracted for AI analysis!\n\nTitle: ${analysisData.title}\nContent: ${analysisData.fullContent.length} characters\nSources: ${analysisData.sources.length}\n\nAI can now analyze this for misinformation!`);
   };
 
   const copyData = async () => {
     if (!verificationData) return;
-    
+   
     try {
       await navigator.clipboard.writeText(JSON.stringify(verificationData, null, 2));
       alert('Verification data copied to clipboard!');
@@ -237,9 +329,18 @@ export function DOM({ onAnalysisReady }: DOMProps) {
 
   // Auto-fetch content when component mounts (only once)
   useEffect(() => {
-    console.log('🚀 DOM Component mounted - initial content fetch');
+    addDebug('DOM Component mounted - initial content fetch');
     fetchContent();
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
+
+  // Check for pending analysis after verificationData is loaded
+  useEffect(() => {
+    if (verificationData) {
+      addDebug('Verification data loaded, checking for pending analysis...');
+      // Small delay to ensure everything is set up
+      setTimeout(checkPendingAnalysis, 500);
+    }
+  }, [verificationData]);
 
   // Listen for tab updates or page changes (with debouncing)
   useEffect(() => {
@@ -249,26 +350,12 @@ export function DOM({ onAnalysisReady }: DOMProps) {
       if (changeInfo.status === 'complete') {
         // Clear existing timer
         clearTimeout(debounceTimer);
-        
+       
         // Debounce for 2 seconds
         debounceTimer = window.setTimeout(() => {
-          console.log('🔄 Page loaded (debounced), refetching content...');
+          addDebug('Page loaded (debounced), refetching content...');
           fetchContent();
         }, 2000);
-      }
-    };
-
-    // Listen for content script ready signal (with debouncing)
-    const handleMessage = (message: any) => {
-      if (message.type === 'CONTENT_SCRIPT_READY') {
-        // Clear existing timer
-        clearTimeout(debounceTimer);
-        
-        // Debounce for 1 second
-        debounceTimer = window.setTimeout(() => {
-          console.log('🚀 Content script ready (debounced), fetching content...');
-          fetchContent();
-        }, 1000);
       }
     };
 
@@ -276,12 +363,10 @@ export function DOM({ onAnalysisReady }: DOMProps) {
       const chromeApi = (window as any).chrome;
       if (chromeApi?.tabs?.onUpdated) {
         chromeApi.tabs.onUpdated.addListener(handleTabUpdated);
-      }
-      if (chromeApi?.runtime?.onMessage) {
-        chromeApi.runtime.onMessage.addListener(handleMessage);
+        addDebug("Tab update listener attached");
       }
     } catch (error) {
-      console.log('Extension APIs not available in this context');
+      addDebug('Extension APIs not available in this context');
     }
 
     return () => {
@@ -290,9 +375,6 @@ export function DOM({ onAnalysisReady }: DOMProps) {
         const chromeApi = (window as any).chrome;
         if (chromeApi?.tabs?.onUpdated) {
           chromeApi.tabs.onUpdated.removeListener(handleTabUpdated);
-        }
-        if (chromeApi?.runtime?.onMessage) {
-          chromeApi.runtime.onMessage.removeListener(handleMessage);
         }
       } catch (error) {
         // Extension context might not be available
@@ -311,35 +393,56 @@ export function DOM({ onAnalysisReady }: DOMProps) {
         {analyzing && (
           <div className="flex items-center mt-2">
             <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
-            <span className="text-xs text-red-600 font-medium">Auto-analyzing for misinformation...</span>
+            <span className="text-xs text-red-600 font-medium">Analyzing for misinformation...</span>
           </div>
         )}
       </div>
 
+      {/* DEBUG SECTION */}
+      <div className="p-3 border-b bg-yellow-50">
+        <h3 className="text-sm font-medium text-yellow-800 mb-2">Debug Log (With Pending Check):</h3>
+        <div className="text-xs text-yellow-700 max-h-32 overflow-y-auto space-y-1 font-mono">
+          {debugInfo.length === 0 ? (
+            <p>No debug info yet...</p>
+          ) : (
+            debugInfo.map((info, index) => (
+              <div key={index}>{info}</div>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* Controls */}
-      <div className="p-3 border-b flex gap-2">
+      <div className="p-3 border-b flex gap-2 flex-wrap">
         <button
           onClick={fetchContent}
           disabled={loading}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
         >
           {loading ? "Loading..." : "Refresh"}
         </button>
-        
+       
         {verificationData && (
           <>
             <button
-              onClick={analyzeContent}
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-              title="Manual analysis (auto-analysis is already running)"
+              onClick={triggerAnalysis}
+              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+              title="Manually trigger analysis"
             >
-              🔍 Re-analyze
+              Manual Analyze
             </button>
             <button
               onClick={copyData}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
             >
               Copy Data
+            </button>
+            <button
+              onClick={checkPendingAnalysis}
+              className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
+              title="Check for pending analysis triggers"
+            >
+              Check Pending
             </button>
           </>
         )}
@@ -350,7 +453,7 @@ export function DOM({ onAnalysisReady }: DOMProps) {
         {error ? (
           <div className="bg-red-50 border border-red-200 rounded p-3">
             <p className="text-red-700">{error}</p>
-            <button 
+            <button
               onClick={() => setError("")}
               className="mt-2 text-sm text-red-600 underline"
             >
@@ -363,20 +466,20 @@ export function DOM({ onAnalysisReady }: DOMProps) {
           </div>
         ) : verificationData ? (
           <div className="space-y-4">
-            {/* Auto-Analysis Status */}
-            <div className={`rounded p-3 ${analyzing ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
+            {/* Analysis Status */}
+            <div className={`rounded p-3 ${analyzing ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'}`}>
               <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${analyzing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
-                <h3 className={`font-medium ${analyzing ? 'text-yellow-800' : 'text-green-800'}`}>
-                  {analyzing ? '🤖 AI Auto-Analysis in Progress...' : '✅ Content Auto-Analyzed'}
+                <div className={`w-2 h-2 rounded-full mr-2 ${analyzing ? 'bg-yellow-500 animate-pulse' : 'bg-blue-500'}`}></div>
+                <h3 className={`font-medium ${analyzing ? 'text-yellow-800' : 'text-blue-800'}`}>
+                  {analyzing ? 'AI Analysis in Progress...' : 'Content Ready for Analysis'}
                 </h3>
               </div>
-              <p className={`text-sm mt-1 ${analyzing ? 'text-yellow-700' : 'text-green-700'}`}>
-                {analyzing ? 'Automatically checking for false claims and misinformation...' : 'AI has automatically analyzed this content. Check below for results.'}
+              <p className={`text-sm mt-1 ${analyzing ? 'text-yellow-700' : 'text-blue-700'}`}>
+                {analyzing ? 'Checking for false claims and misinformation...' : 'Click the webpage popup or "Manual Analyze" button.'}
               </p>
               {analysisCount > 0 && (
                 <p className="text-xs text-gray-600 mt-1">
-                  Auto-analyses performed: {analysisCount} | Rate limit: {Math.max(0, MAX_ANALYSES_PER_MINUTE - analysisTimestamps.length)} remaining
+                  Analyses performed: {analysisCount} | Rate limit: {Math.max(0, MAX_ANALYSES_PER_MINUTE - analysisTimestamps.length)} remaining
                 </p>
               )}
             </div>
@@ -389,13 +492,13 @@ export function DOM({ onAnalysisReady }: DOMProps) {
 
             {/* Content Preview */}
             <div className="bg-blue-50 rounded p-3">
-              <h3 className="font-medium mb-2">Content Auto-Analyzed by AI</h3>
+              <h3 className="font-medium mb-2">Content Ready for Analysis</h3>
               <p className="text-sm text-gray-700 leading-relaxed max-h-32 overflow-y-auto">
                 {verificationData.content.substring(0, 500)}
                 {verificationData.content.length > 500 && '...'}
               </p>
               <p className="text-xs text-blue-600 mt-2">
-                Total: {verificationData.content.length} characters auto-analyzed
+                Total: {verificationData.content.length} characters ready for analysis
               </p>
             </div>
 
@@ -410,20 +513,19 @@ export function DOM({ onAnalysisReady }: DOMProps) {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-green-600 mt-2">
-                  AI automatically checked credibility of these sources
-                </p>
               </div>
             )}
 
             {/* Instructions */}
             <div className="bg-purple-50 border border-purple-200 rounded p-3">
-              <h3 className="font-medium text-purple-800 mb-1">📋 How it works</h3>
+              <h3 className="font-medium text-purple-800 mb-1">How it works</h3>
               <ul className="text-xs text-purple-700 space-y-1">
-                <li>• Content is automatically analyzed when page loads</li>
-                <li>• False claims are highlighted with colored underlines</li>
-                <li>• Hover over highlighted text to see fact corrections</li>
-                <li>• Different colors indicate severity levels</li>
+                <li>• A popup appears directly on the webpage when content loads</li>
+                <li>• Click "Check for False Claims" in the popup to trigger analysis</li>
+                <li>• Extension automatically checks for pending triggers</li>
+                <li>• False claims will be highlighted on the webpage</li>
+                <li>• Hover over highlights to see corrections</li>
+                <li>• Check debug log above to see trigger status</li>
               </ul>
             </div>
           </div>
@@ -431,7 +533,7 @@ export function DOM({ onAnalysisReady }: DOMProps) {
           <div className="flex items-center justify-center h-full text-gray-500">
             <div className="text-center">
               <div className="text-4xl mb-2">🔍</div>
-              <div>Click "Refresh" to extract content for AI analysis</div>
+              <div>Click "Refresh" to extract content</div>
             </div>
           </div>
         )}

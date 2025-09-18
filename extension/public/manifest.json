@@ -11,9 +11,19 @@
     "48": "veri.png",
     "128": "veri.png"
   },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+   "host_permissions": [
+    "<all_urls>"
+  ],
   "permissions": [
     "activeTab",
-    "scripting"
+    "tabs",
+    "scripting",
+    "webNavigation",
+    "storage"
   ],
   "content_scripts": [
     {
