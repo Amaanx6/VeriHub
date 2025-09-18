@@ -72,20 +72,23 @@
         border-bottom: 2px wavy #dc3545 !important;
         cursor: help !important;
         position: relative !important;
+        display: inline !important;
+        padding: 1px 2px !important;
+        border-radius: 2px !important;
       }
       
       .verihub-highlight.severity-high {
-        background-color: rgba(220, 53, 69, 0.2) !important;
+        background-color: rgba(220, 53, 69, 0.3) !important;
         border-bottom-color: #dc3545 !important;
       }
       
       .verihub-highlight.severity-medium {
-        background-color: rgba(255, 193, 7, 0.2) !important;
+        background-color: rgba(255, 193, 7, 0.3) !important;
         border-bottom-color: #ffc107 !important;
       }
       
       .verihub-highlight.severity-low {
-        background-color: rgba(13, 202, 240, 0.2) !important;
+        background-color: rgba(13, 202, 240, 0.3) !important;
         border-bottom-color: #0dcaf0 !important;
       }
 
@@ -227,96 +230,167 @@
     tooltip.style.top = `${top}px`;
   };
 
-  // Find and highlight text in the DOM
+  // IMPROVED: More flexible text matching and highlighting
   const highlightText = (searchText, issue) => {
-    const searchWords = searchText.toLowerCase().trim().split(/\s+/);
-    const minWordMatch = Math.max(2, Math.floor(searchWords.length * 0.6));
+    console.log(`🔍 Attempting to highlight: "${searchText.substring(0, 100)}..."`);
+    
+    // Multiple matching strategies
+    const strategies = [
+      // Strategy 1: Exact phrase match (case insensitive)
+      (text) => text.toLowerCase().includes(searchText.toLowerCase()),
+      
+      // Strategy 2: Most words match (60% threshold)
+      (text) => {
+        const searchWords = searchText.toLowerCase().trim().split(/\s+/).filter(w => w.length > 2);
+        const textWords = text.toLowerCase().split(/\s+/);
+        const matches = searchWords.filter(word => textWords.some(tw => tw.includes(word) || word.includes(tw)));
+        return matches.length >= Math.max(2, Math.floor(searchWords.length * 0.6));
+      },
+      
+      // Strategy 3: Key words match (fuzzy)
+      (text) => {
+        const keyWords = searchText.toLowerCase().match(/\b\w{4,}\b/g) || [];
+        if (keyWords.length === 0) return false;
+        const matches = keyWords.filter(word => text.toLowerCase().includes(word));
+        return matches.length >= Math.max(1, Math.floor(keyWords.length * 0.5));
+      }
+    ];
 
-    // Find all text nodes
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: function(node) {
-          const parent = node.parentElement;
-          if (!parent) return NodeFilter.FILTER_REJECT;
-          
-          const tagName = parent.tagName.toLowerCase();
-          if (['script', 'style', 'noscript'].includes(tagName)) {
-            return NodeFilter.FILTER_REJECT;
+    // Get all text nodes from main content areas first
+    const contentAreas = [
+      ...document.querySelectorAll('article, main, .content, .post, .article-body, .story-body, [role="main"]'),
+      document.body
+    ];
+
+    let highlighted = false;
+
+    for (const area of contentAreas) {
+      if (highlighted) break;
+
+      const walker = document.createTreeWalker(
+        area,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode: function(node) {
+            const parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            
+            const tagName = parent.tagName.toLowerCase();
+            if (['script', 'style', 'noscript', 'nav', 'header', 'footer'].includes(tagName)) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            
+            if (parent.classList.contains('verihub-highlight') || 
+                parent.classList.contains('verihub-tooltip') ||
+                parent.closest('.verihub-highlight, .verihub-tooltip')) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            
+            const text = node.textContent.trim();
+            return text.length > 15 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
           }
+        }
+      );
+
+      const textNodes = [];
+      let node;
+      while (node = walker.nextNode()) {
+        textNodes.push(node);
+      }
+
+      // Try each strategy
+      for (let strategyIndex = 0; strategyIndex < strategies.length && !highlighted; strategyIndex++) {
+        const strategy = strategies[strategyIndex];
+        
+        for (const textNode of textNodes) {
+          const text = textNode.textContent;
           
-          if (parent.classList.contains('verihub-highlight') || 
-              parent.classList.contains('verihub-tooltip')) {
-            return NodeFilter.FILTER_REJECT;
+          if (strategy(text)) {
+            try {
+              // Create highlight wrapper
+              const highlight = document.createElement('span');
+              highlight.className = `verihub-highlight severity-${issue.severity}`;
+              highlight.setAttribute('data-verihub-issue', JSON.stringify(issue));
+              
+              // Wrap the text node
+              const parent = textNode.parentNode;
+              parent.insertBefore(highlight, textNode);
+              highlight.appendChild(textNode);
+              
+              highlightedElements.push(highlight);
+
+              // Add hover events
+              let showTimeout;
+              let hideTimeout;
+
+              const showTooltip = () => {
+                clearTimeout(hideTimeout);
+                const tooltip = createTooltip(issue);
+                positionTooltip(tooltip, highlight);
+                
+                showTimeout = setTimeout(() => {
+                  if (tooltip && tooltip.parentNode) {
+                    tooltip.classList.add('show');
+                  }
+                }, 100);
+              };
+
+              const hideTooltip = () => {
+                clearTimeout(showTimeout);
+                if (tooltipElement) {
+                  tooltipElement.classList.remove('show');
+                  hideTimeout = setTimeout(() => {
+                    if (tooltipElement && !tooltipElement.matches(':hover')) {
+                      tooltipElement.remove();
+                      tooltipElement = null;
+                    }
+                  }, 300);
+                }
+              };
+
+              highlight.addEventListener('mouseenter', showTooltip);
+              highlight.addEventListener('mouseleave', hideTooltip);
+
+              console.log(`✅ Successfully highlighted with strategy ${strategyIndex + 1}: "${text.substring(0, 50)}..."`);
+              highlighted = true;
+              break;
+            } catch (error) {
+              console.error('Error highlighting text:', error);
+            }
           }
-          
-          const text = node.textContent.trim();
-          return text.length > 10 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         }
       }
-    );
-
-    const textNodes = [];
-    let node;
-    while (node = walker.nextNode()) {
-      textNodes.push(node);
     }
 
-    // Search for matches
-    for (const textNode of textNodes) {
-      const text = textNode.textContent.toLowerCase();
+    if (!highlighted) {
+      console.warn(`❌ Could not highlight: "${searchText.substring(0, 50)}..."`);
       
-      // Count matching words
-      const matchingWords = searchWords.filter(word => text.includes(word));
-      
-      if (matchingWords.length >= minWordMatch) {
-        // Create highlight wrapper
-        const highlight = document.createElement('span');
-        highlight.className = `verihub-highlight severity-${issue.severity}`;
-        highlight.setAttribute('data-verihub-issue', JSON.stringify(issue));
-        
-        // Wrap the text node
-        const parent = textNode.parentNode;
-        parent.insertBefore(highlight, textNode);
-        highlight.appendChild(textNode);
-        
-        highlightedElements.push(highlight);
-
-        // Add hover events
-        let showTimeout;
-        let hideTimeout;
-
-        const showTooltip = () => {
-          clearTimeout(hideTimeout);
-          const tooltip = createTooltip(issue);
-          positionTooltip(tooltip, highlight);
-          
-          showTimeout = setTimeout(() => {
-            if (tooltip && tooltip.parentNode) {
-              tooltip.classList.add('show');
+      // Fallback: Try to highlight any paragraph containing key words
+      const keyWords = searchText.toLowerCase().match(/\b\w{4,}\b/g) || [];
+      if (keyWords.length > 0) {
+        const paragraphs = document.querySelectorAll('p, div, span');
+        for (const para of paragraphs) {
+          const text = para.textContent || '';
+          if (text.length > 50 && keyWords.some(word => text.toLowerCase().includes(word))) {
+            try {
+              para.style.backgroundColor = 'rgba(255, 193, 7, 0.2)';
+              para.style.borderLeft = '4px solid #ffc107';
+              para.style.paddingLeft = '8px';
+              para.style.cursor = 'help';
+              para.setAttribute('data-verihub-fallback', JSON.stringify(issue));
+              
+              para.addEventListener('click', () => {
+                alert(`False Claim Detected (${issue.severity})\n\nReason: ${issue.reason}\n\nCorrection: ${issue.correction}`);
+              });
+              
+              highlightedElements.push(para);
+              console.log(`📝 Fallback highlight applied to paragraph`);
+              break;
+            } catch (error) {
+              console.error('Error applying fallback highlight:', error);
             }
-          }, 100);
-        };
-
-        const hideTooltip = () => {
-          clearTimeout(showTimeout);
-          if (tooltipElement) {
-            tooltipElement.classList.remove('show');
-            hideTimeout = setTimeout(() => {
-              if (tooltipElement && !tooltipElement.matches(':hover')) {
-                tooltipElement.remove();
-                tooltipElement = null;
-              }
-            }, 300);
           }
-        };
-
-        highlight.addEventListener('mouseenter', showTooltip);
-        highlight.addEventListener('mouseleave', hideTooltip);
-
-        console.log(`Highlighted: "${searchText.substring(0, 50)}..." with ${matchingWords.length} matching words`);
-        break; // Only highlight first match to avoid duplicates
+        }
       }
     }
   };
@@ -325,12 +399,22 @@
   const cleanupHighlights = () => {
     highlightedElements.forEach(element => {
       if (element && element.parentNode) {
-        // Move text back to parent and remove highlight wrapper
-        const parent = element.parentNode;
-        while (element.firstChild) {
-          parent.insertBefore(element.firstChild, element);
+        // Check if it's a fallback highlight
+        if (element.hasAttribute('data-verihub-fallback')) {
+          // Remove fallback styles
+          element.style.backgroundColor = '';
+          element.style.borderLeft = '';
+          element.style.paddingLeft = '';
+          element.style.cursor = '';
+          element.removeAttribute('data-verihub-fallback');
+        } else {
+          // Move text back to parent and remove highlight wrapper
+          const parent = element.parentNode;
+          while (element.firstChild) {
+            parent.insertBefore(element.firstChild, element);
+          }
+          parent.removeChild(element);
         }
-        parent.removeChild(element);
       }
     });
     highlightedElements = [];
@@ -343,7 +427,7 @@
 
   // Handle highlighting false claims
   const handleHighlightFalseClaims = (data) => {
-    console.log('Starting to highlight false claims:', data.issues.length);
+    console.log('🎯 Starting to highlight false claims:', data.issues.length);
     
     // Inject styles
     injectStyles();
@@ -351,18 +435,26 @@
     // Clean up any existing highlights
     cleanupHighlights();
     
-    // Highlight each issue
-    data.issues.forEach((issue, index) => {
-      console.log(`Highlighting claim ${index + 1}:`, issue.claim.substring(0, 100) + '...');
-      highlightText(issue.claim, issue);
-    });
+    // Small delay to ensure page is ready
+    setTimeout(() => {
+      // Highlight each issue
+      data.issues.forEach((issue, index) => {
+        console.log(`🔍 Processing claim ${index + 1}:`, issue.claim.substring(0, 50) + '...');
+        highlightText(issue.claim, issue);
+      });
 
-    console.log(`Highlighting complete. ${highlightedElements.length} elements highlighted.`);
+      console.log(`✅ Highlighting complete. ${highlightedElements.length} elements highlighted.`);
+      
+      // Show notification if highlights were added
+      if (highlightedElements.length > 0) {
+        console.log(`🎉 VeriHub found ${highlightedElements.length} potentially false claims on this page!`);
+      }
+    }, 500);
   };
 
   // Listen for messages from the popup/extension
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('Content script received message:', request.type);
+    console.log('📨 Content script received message:', request.type);
     
     if (request.type === "GET_DOM") {
       try {
@@ -376,7 +468,7 @@
           length: domString.length
         };
         
-        console.log('Sending DOM response:', {
+        console.log('📤 Sending DOM response:', {
           length: response.length,
           domain: response.domain,
           title: response.title?.substring(0, 50) + '...'
@@ -384,7 +476,7 @@
         
         sendResponse(response);
       } catch (error) {
-        console.error('Error in GET_DOM handler:', error);
+        console.error('❌ Error in GET_DOM handler:', error);
         sendResponse({
           success: false,
           error: error.message,
@@ -400,7 +492,7 @@
         handleHighlightFalseClaims(request.data);
         sendResponse({ success: true });
       } catch (error) {
-        console.error('Error highlighting claims:', error);
+        console.error('❌ Error highlighting claims:', error);
         sendResponse({ success: false, error: error.message });
       }
       
@@ -436,7 +528,7 @@
   const startAutoAnalysis = () => {
     // Wait a bit for the page to settle, then trigger analysis
     setTimeout(() => {
-      console.log('Auto-triggering VeriHub analysis...');
+      console.log('🚀 Auto-triggering VeriHub analysis...');
       signalReadyAndAnalyze();
     }, 2000); // 2 second delay
   };
@@ -453,5 +545,5 @@
     window.addEventListener('load', startAutoAnalysis);
   }
 
-  console.log('VeriHub content script fully initialized');
+  console.log('🎯 VeriHub content script fully initialized with improved highlighting');
 })();

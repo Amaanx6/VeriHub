@@ -32,11 +32,9 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   const [verificationData, setVerificationData] = useState<VerificationData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
-  //@ts-ignore
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   //@ts-ignore
   const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState<string>("");
-  //@ts-ignore
   const [analysisCount, setAnalysisCount] = useState<number>(0);
 
   // Rate limiting - max 3 analyses per minute
@@ -44,7 +42,6 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   const analysisTimestamps = useState<number[]>([])[0];
 
   // Check if analysis should be performed (rate limiting)
-  //@ts-ignore
   const canAnalyze = () => {
     const now = Date.now();
     const oneMinuteAgo = now - 60000;
@@ -58,9 +55,9 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   };
 
   // Add analysis timestamp
-  //@ts-ignore
   const recordAnalysis = () => {
     analysisTimestamps.push(Date.now());
+    setAnalysisCount(prev => prev + 1);
   };
 
   // Check if content has changed significantly
@@ -200,10 +197,20 @@ export function DOM({ onAnalysisReady }: DOMProps) {
     }
   };
 
-  // Auto-analyze content when verification data is ready (only on manual trigger now)
+  // AUTO-ANALYZE content when verification data is ready - THIS IS THE KEY FIX
   useEffect(() => {
-    // Remove automatic analysis - will be triggered by content script signal instead
-  }, [verificationData, onAnalysisReady]);
+    if (verificationData && onAnalysisReady && canAnalyze()) {
+      console.log('🔍 DOM COMPONENT: Auto-triggering analysis...');
+      setAnalyzing(true);
+      recordAnalysis();
+      
+      const analysisData = verificationData.exportForAnalysis();
+      onAnalysisReady(analysisData);
+      
+      // Set analyzing to false after a delay
+      setTimeout(() => setAnalyzing(false), 3000);
+    }
+  }, [verificationData, onAnalysisReady]); // This will trigger auto-analysis
 
   const analyzeContent = () => {
     if (!verificationData) return;
@@ -304,7 +311,7 @@ export function DOM({ onAnalysisReady }: DOMProps) {
         {analyzing && (
           <div className="flex items-center mt-2">
             <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
-            <span className="text-xs text-red-600 font-medium">Analyzing for misinformation...</span>
+            <span className="text-xs text-red-600 font-medium">Auto-analyzing for misinformation...</span>
           </div>
         )}
       </div>
@@ -361,15 +368,15 @@ export function DOM({ onAnalysisReady }: DOMProps) {
               <div className="flex items-center">
                 <div className={`w-2 h-2 rounded-full mr-2 ${analyzing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
                 <h3 className={`font-medium ${analyzing ? 'text-yellow-800' : 'text-green-800'}`}>
-                  {analyzing ? '🤖 AI Analysis in Progress...' : '✅ Content Auto-Analyzed'}
+                  {analyzing ? '🤖 AI Auto-Analysis in Progress...' : '✅ Content Auto-Analyzed'}
                 </h3>
               </div>
               <p className={`text-sm mt-1 ${analyzing ? 'text-yellow-700' : 'text-green-700'}`}>
-                {analyzing ? 'Checking for false claims and misinformation...' : 'AI has analyzed this content for misinformation. Check below for results.'}
+                {analyzing ? 'Automatically checking for false claims and misinformation...' : 'AI has automatically analyzed this content. Check below for results.'}
               </p>
               {analysisCount > 0 && (
                 <p className="text-xs text-gray-600 mt-1">
-                  Analyses performed: {analysisCount} | Rate limit: {Math.max(0, MAX_ANALYSES_PER_MINUTE - analysisTimestamps.length)} remaining
+                  Auto-analyses performed: {analysisCount} | Rate limit: {Math.max(0, MAX_ANALYSES_PER_MINUTE - analysisTimestamps.length)} remaining
                 </p>
               )}
             </div>
@@ -382,13 +389,13 @@ export function DOM({ onAnalysisReady }: DOMProps) {
 
             {/* Content Preview */}
             <div className="bg-blue-50 rounded p-3">
-              <h3 className="font-medium mb-2">Content Analyzed by AI</h3>
+              <h3 className="font-medium mb-2">Content Auto-Analyzed by AI</h3>
               <p className="text-sm text-gray-700 leading-relaxed max-h-32 overflow-y-auto">
                 {verificationData.content.substring(0, 500)}
                 {verificationData.content.length > 500 && '...'}
               </p>
               <p className="text-xs text-blue-600 mt-2">
-                Total: {verificationData.content.length} characters analyzed
+                Total: {verificationData.content.length} characters auto-analyzed
               </p>
             </div>
 
@@ -404,7 +411,7 @@ export function DOM({ onAnalysisReady }: DOMProps) {
                   ))}
                 </div>
                 <p className="text-xs text-green-600 mt-2">
-                  AI has checked credibility of these sources
+                  AI automatically checked credibility of these sources
                 </p>
               </div>
             )}

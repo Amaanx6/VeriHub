@@ -35,7 +35,7 @@ export const Verification = ({ data }: VerificationProps) => {
 
   
   const ai = new GoogleGenAI({
-    apiKey: "AIzaSyBjx2ds3bkrpq_A9RWK64OxzO99r06bga0", 
+    apiKey: "AIzaSyCPfUZesLywczPOXbVZ4POwf0GVGCHEhfI", 
   });
 
   const createPrompt = (data: AnalysisData): string => `
@@ -110,7 +110,12 @@ Instructions:
     if (!data) return;
 
     // Create a content hash to avoid re-analyzing same content
-    const contentHash = btoa(data.fullContent.substring(0, 1000)).substring(0, 50);
+    function safeBtoa(str: string): string {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+const contentHash = safeBtoa(data.fullContent.substring(0, 1000)).substring(0, 50);
+
     
     // Skip if same content was already analyzed
     if (contentHash === lastAnalyzedData) {
@@ -127,7 +132,7 @@ Instructions:
 
       console.log('🤖 Sending request to Gemini AI...');
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
+        model: "gemini-2.5-flash",
         contents: prompt,
       });
 
@@ -150,13 +155,13 @@ Instructions:
     }
   };
 
-  // Auto-analyze when data changes
+  // Auto-analyze when data changes (THIS IS THE KEY CHANGE)
   useEffect(() => {
     if (data) {
       console.log('🔄 Auto-analyzing new content...');
       sendToAI(data);
     }
-  }, [data]);
+  }, [data]); // This will trigger whenever new data is received from DOM component
 
   return (
     <div className="p-4 border-t bg-gray-50 w-[450px] h-[600px] overflow-auto">
@@ -172,7 +177,7 @@ Instructions:
       {data && verificationResult && (
         <div className="space-y-3">
           <div className="bg-green-50 border border-green-200 rounded p-2">
-            <p className="font-medium text-green-800">✅ Content ready for AI analysis</p>
+            <p className="font-medium text-green-800">✅ Content auto-analyzed by AI</p>
             <p className="text-green-700">Length: {data.fullContent.length} chars</p>
             <p className="text-green-700">Sources: {data.sources.length}</p>
             <p className="text-green-700">Domain: {data.domain}</p>
