@@ -277,6 +277,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
       break;
       
+    case 'OPEN_EXTENSION_FOR_ANALYSIS':
+      console.log('🔍 Extension open requested from report button');
+      // Force open extension regardless of debounce/checks for user-initiated requests
+      if (message.url && message.title) {
+        triggerAutoPopup(message.url, message.title);
+      }
+      sendResponse({ success: true });
+      break;
+      
     case 'DISABLE_AUTO_TRIGGER':
       // Temporarily disable auto-trigger
       lastTriggerTime = Date.now();

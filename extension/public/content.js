@@ -331,49 +331,6 @@
     return false;
   });
 
-  // Fixed notification bar
-  const showAnalysisBar = () => {
-    if (document.getElementById('verihub-bar')) return;
-    
-    const bar = document.createElement('div');
-    bar.id = 'verihub-bar';
-    bar.innerHTML = `
-      <div style="position: fixed; top: 0; left: 0; right: 0; background: #dc2626; color: white; padding: 12px; z-index: 999999; text-align: center; font-family: system-ui;">
-        <span>VeriHub: Check this page for false claims? </span>
-        <button id="verihub-check-btn" 
-                style="background: white; color: #dc2626; border: none; padding: 4px 12px; margin-left: 8px; border-radius: 4px; cursor: pointer;">
-          Check Now
-        </button>
-        <button id="verihub-dismiss-btn" 
-                style="background: transparent; color: white; border: 1px solid white; padding: 4px 12px; margin-left: 4px; border-radius: 4px; cursor: pointer;">
-          Dismiss
-        </button>
-      </div>
-    `;
-    
-    document.body.appendChild(bar);
-    
-    // Add event listeners (these work in content script context)
-    document.getElementById('verihub-check-btn').addEventListener('click', () => {
-      console.log('Setting trigger flag...');
-      chrome.storage.local.set({ triggerAnalysis: true }, () => {
-        console.log('Trigger flag set to true');
-      });
-      bar.remove();
-    });
-    
-    document.getElementById('verihub-dismiss-btn').addEventListener('click', () => {
-      bar.remove();
-    });
-  };
-
-  // Show bar when page loads
-  if (document.readyState === 'complete') {
-    showAnalysisBar();
-  } else {
-    window.addEventListener('load', showAnalysisBar);
-  }
-
   // Show popup when page loads/changes
   const showPopupOnPageLoad = () => {
     setTimeout(() => {

@@ -83,6 +83,27 @@ class HighlightManager {
         color: #90ee90 !important;
       }
       
+      .verihub-tooltip-report {
+        margin-top: 8px !important;
+        padding-top: 8px !important;
+        border-top: 1px solid #555 !important;
+      }
+      
+      .verihub-report-btn {
+        background: #3b82f6 !important;
+        color: white !important;
+        border: none !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+        font-size: 11px !important;
+        cursor: pointer !important;
+        transition: background-color 0.2s !important;
+      }
+      
+      .verihub-report-btn:hover {
+        background: #2563eb !important;
+      }
+      
       .verihub-tooltip-severity {
         display: inline-block !important;
         padding: 2px 6px !important;
@@ -130,7 +151,26 @@ class HighlightManager {
       <div class="verihub-tooltip-correction">
         <strong>Correction:</strong> ${issue.correction}
       </div>
+      <div class="verihub-tooltip-report">
+        <button class="verihub-report-btn">Report Issue</button>
+      </div>
     `;
+    
+    // Add click event for report button
+    const reportBtn = this.tooltipElement.querySelector('.verihub-report-btn');
+    reportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      chrome.runtime.sendMessage({
+        type: 'OPEN_EXTENSION_FOR_ANALYSIS',
+        url: window.location.href,
+        title: document.title
+      });
+      // Hide tooltip after clicking
+      if (this.tooltipElement) {
+        this.tooltipElement.remove();
+        this.tooltipElement = null;
+      }
+    });
     
     // Add hover events to tooltip itself
     let hideTimeout;
@@ -304,15 +344,17 @@ class HighlightManager {
               
               const hideTooltip = () => {
                 clearTimeout(showTimeout);
-                if (this.tooltipElement) {
-                  this.tooltipElement.classList.remove("show");
-                  hideTimeout = setTimeout(() => {
-                    if (this.tooltipElement && !this.tooltipElement.matches(":hover")) {
-                      this.tooltipElement.remove();
-                      this.tooltipElement = null;
-                    }
-                  }, 300);
-                }
+                hideTimeout = setTimeout(() => {
+                  if (this.tooltipElement) {
+                    this.tooltipElement.classList.remove("show");
+                    setTimeout(() => {
+                      if (this.tooltipElement) {
+                        this.tooltipElement.remove();
+                        this.tooltipElement = null;
+                      }
+                    }, 200);
+                  }
+                }, 2000); // 2 second delay before hiding
               };
               
               highlight.addEventListener("mouseenter", showTooltip);
