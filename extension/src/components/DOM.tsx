@@ -383,132 +383,158 @@ export function DOM({ onAnalysisReady }: DOMProps) {
   }, []);
 
   return (
-    <div className="w-[450px] h-[600px] flex flex-col bg-white">
+    <div className="w-[450px] h-[600px] flex flex-col bg-black border-4 border-red-500 overflow-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <style>{`
+        div::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      
       {/* Header */}
-      <div className="p-4 border-b bg-blue-50">
-        <h2 className="text-lg font-bold text-blue-800">VeriHub - Fact Checker</h2>
+      <div className="bg-white text-black p-6 border-b-4 border-red-500">
+        <h2 className="text-2xl font-black uppercase tracking-wider">VERIHUB - FACT CHECKER</h2>
         {verificationData && (
-          <p className="text-sm text-blue-600 truncate">{verificationData.domain}</p>
+          <p className="font-black uppercase tracking-wide text-sm mt-2">{verificationData.domain}</p>
         )}
         {analyzing && (
-          <div className="flex items-center mt-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
-            <span className="text-xs text-red-600 font-medium">Analyzing for misinformation...</span>
+          <div className="flex items-center mt-4">
+            <div className="w-4 h-4 bg-red-500 animate-pulse mr-4"></div>
+            <span className="font-black uppercase tracking-wide text-xs">ANALYZING FOR MISINFORMATION...</span>
           </div>
         )}
       </div>
 
       {/* DEBUG SECTION */}
-      <div className="p-3 border-b bg-yellow-50">
-        <h3 className="text-sm font-medium text-yellow-800 mb-2">Debug Log (With Pending Check):</h3>
-        <div className="text-xs text-yellow-700 max-h-32 overflow-y-auto space-y-1 font-mono">
+      <div className="p-6 border-b-4 border-red-500 bg-gray-800">
+        <h3 className="font-black text-white uppercase tracking-wide mb-4">DEBUG LOG (WITH PENDING CHECK):</h3>
+        <div className="text-xs text-white max-h-32 overflow-y-auto space-y-1 font-bold" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <style>{`
+            div::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
           {debugInfo.length === 0 ? (
-            <p>No debug info yet...</p>
+            <p className="uppercase tracking-wide">NO DEBUG INFO YET...</p>
           ) : (
             debugInfo.map((info, index) => (
-              <div key={index}>{info}</div>
+              <div key={index} className="uppercase tracking-wide">{info}</div>
             ))
           )}
         </div>
       </div>
 
       {/* Controls */}
-      <div className="p-3 border-b flex gap-2 flex-wrap">
+      <div className="p-6 border-b-4 border-red-500 bg-black flex gap-4 flex-wrap">
         <button
           onClick={fetchContent}
           disabled={loading}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
+          className="bg-red-500 text-white py-4 px-6 border-4 border-white font-black text-sm uppercase tracking-wider hover:bg-white hover:text-black transform hover:scale-105 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
-          {loading ? "Loading..." : "Refresh"}
+          {loading ? "LOADING..." : "REFRESH"}
         </button>
        
         {verificationData && (
           <>
             <button
               onClick={triggerAnalysis}
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+              className="bg-red-500 text-white py-4 px-6 border-4 border-white font-black text-sm uppercase tracking-wider hover:bg-white hover:text-black transform hover:scale-105 transition-all duration-150"
               title="Manually trigger analysis"
             >
-              Manual Analyze
+              MANUAL ANALYZE
             </button>
             <button
               onClick={copyData}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+              className="bg-green-400 text-black py-4 px-6 border-4 border-white font-black text-sm uppercase tracking-wider hover:bg-white hover:text-black transform hover:scale-105 transition-all duration-150"
             >
-              Copy Data
+              COPY DATA
             </button>
             <button
               onClick={checkPendingAnalysis}
-              className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
+              className="bg-gray-800 text-white py-4 px-6 border-4 border-white font-black text-sm uppercase tracking-wider hover:bg-white hover:text-black transform hover:scale-105 transition-all duration-150"
               title="Check for pending analysis triggers"
             >
-              Check Pending
+              CHECK PENDING
             </button>
           </>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-y-auto p-6 bg-black" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <style>{`
+          div::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
         {error ? (
-          <div className="bg-red-50 border border-red-200 rounded p-3">
-            <p className="text-red-700">{error}</p>
+          <div className="bg-red-500 text-white p-6 border-4 border-white">
+            <p className="font-black uppercase tracking-wide">{error}</p>
             <button
               onClick={() => setError("")}
-              className="mt-2 text-sm text-red-600 underline"
+              className="mt-4 bg-white text-black py-2 px-4 font-black uppercase tracking-wide border-2 border-black hover:bg-gray-200 transform hover:scale-105 transition-all duration-150"
             >
-              Dismiss
+              DISMISS
             </button>
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-gray-500">Loading content...</div>
+            <div className="text-white font-black uppercase tracking-wider">LOADING CONTENT...</div>
           </div>
         ) : verificationData ? (
-          <div className="space-y-4">
+          <div className="space-y-8">
             {/* Analysis Status */}
-            <div className={`rounded p-3 ${analyzing ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'}`}>
+            <div className={`p-6 border-4 border-white ${analyzing ? 'bg-red-500 text-white' : 'bg-gray-800 text-white'}`}>
               <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${analyzing ? 'bg-yellow-500 animate-pulse' : 'bg-blue-500'}`}></div>
-                <h3 className={`font-medium ${analyzing ? 'text-yellow-800' : 'text-blue-800'}`}>
-                  {analyzing ? 'AI Analysis in Progress...' : 'Content Ready for Analysis'}
+                <div className={`w-4 h-4 mr-4 ${analyzing ? 'bg-white animate-pulse' : 'bg-red-500'}`}></div>
+                <h3 className="font-black uppercase tracking-wider">
+                  {analyzing ? 'AI ANALYSIS IN PROGRESS...' : 'CONTENT READY FOR ANALYSIS'}
                 </h3>
               </div>
-              <p className={`text-sm mt-1 ${analyzing ? 'text-yellow-700' : 'text-blue-700'}`}>
-                {analyzing ? 'Checking for false claims and misinformation...' : 'Click the webpage popup or "Manual Analyze" button.'}
+              <p className="font-bold uppercase tracking-wide text-sm mt-4">
+                {analyzing ? 'CHECKING FOR FALSE CLAIMS AND MISINFORMATION...' : 'CLICK THE WEBPAGE POPUP OR "MANUAL ANALYZE" BUTTON.'}
               </p>
               {analysisCount > 0 && (
-                <p className="text-xs text-gray-600 mt-1">
-                  Analyses performed: {analysisCount} | Rate limit: {Math.max(0, MAX_ANALYSES_PER_MINUTE - analysisTimestamps.length)} remaining
+                <p className="text-white font-bold uppercase tracking-wide text-xs mt-4">
+                  ANALYSES PERFORMED: {analysisCount} | RATE LIMIT: {Math.max(0, MAX_ANALYSES_PER_MINUTE - analysisTimestamps.length)} REMAINING
                 </p>
               )}
             </div>
 
             {/* Title */}
-            <div className="bg-gray-50 rounded p-3">
-              <h3 className="font-medium mb-1">Article Title</h3>
-              <p className="text-sm">{verificationData.title}</p>
+            <div className="bg-gray-800 p-6 border-4 border-white">
+              <h3 className="font-black text-white uppercase tracking-wide mb-4">ARTICLE TITLE</h3>
+              <p className="text-white font-bold uppercase tracking-wide text-sm">{verificationData.title}</p>
             </div>
 
             {/* Content Preview */}
-            <div className="bg-blue-50 rounded p-3">
-              <h3 className="font-medium mb-2">Content Ready for Analysis</h3>
-              <p className="text-sm text-gray-700 leading-relaxed max-h-32 overflow-y-auto">
-                {verificationData.content.substring(0, 500)}
+            <div className="bg-gray-800 p-6 border-4 border-white">
+              <h3 className="font-black text-white uppercase tracking-wide mb-6">CONTENT READY FOR ANALYSIS</h3>
+              <p className="text-white font-bold text-sm leading-relaxed max-h-32 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <style>{`
+                  p::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
+                {verificationData.content.substring(0, 500).toUpperCase()}
                 {verificationData.content.length > 500 && '...'}
               </p>
-              <p className="text-xs text-blue-600 mt-2">
-                Total: {verificationData.content.length} characters ready for analysis
+              <p className="text-red-400 font-bold uppercase tracking-wide text-xs mt-6">
+                TOTAL: {verificationData.content.length} CHARACTERS READY FOR ANALYSIS
               </p>
             </div>
 
             {/* Sources */}
             {verificationData.sources.length > 0 && (
-              <div className="bg-green-50 rounded p-3">
-                <h3 className="font-medium mb-2">External Sources ({verificationData.sources.length})</h3>
-                <div className="space-y-1 max-h-24 overflow-y-auto">
+              <div className="bg-green-400 text-black p-6 border-4 border-white">
+                <h3 className="font-black uppercase tracking-wide mb-6">EXTERNAL SOURCES ({verificationData.sources.length})</h3>
+                <div className="space-y-2 max-h-24 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <style>{`
+                    div::-webkit-scrollbar {
+                      display: none;
+                    }
+                  `}</style>
                   {verificationData.sources.map((source, index) => (
-                    <div key={index} className="text-xs font-mono bg-white px-2 py-1 rounded">
+                    <div key={index} className="font-bold bg-white text-black px-4 py-2 border-2 border-black text-xs uppercase tracking-wide">
                       {source}
                     </div>
                   ))}
@@ -517,23 +543,23 @@ export function DOM({ onAnalysisReady }: DOMProps) {
             )}
 
             {/* Instructions */}
-            <div className="bg-purple-50 border border-purple-200 rounded p-3">
-              <h3 className="font-medium text-purple-800 mb-1">How it works</h3>
-              <ul className="text-xs text-purple-700 space-y-1">
-                <li>• A popup appears directly on the webpage when content loads</li>
-                <li>• Click "Check for False Claims" in the popup to trigger analysis</li>
-                <li>• Extension automatically checks for pending triggers</li>
-                <li>• False claims will be highlighted on the webpage</li>
-                <li>• Hover over highlights to see corrections</li>
-                <li>• Check debug log above to see trigger status</li>
+            <div className="bg-gray-800 p-6 border-4 border-white">
+              <h3 className="font-black text-white uppercase tracking-wide mb-4">HOW IT WORKS</h3>
+              <ul className="text-white font-bold uppercase tracking-wide text-xs space-y-2">
+                <li>• A POPUP APPEARS DIRECTLY ON THE WEBPAGE WHEN CONTENT LOADS</li>
+                <li>• CLICK "CHECK FOR FALSE CLAIMS" IN THE POPUP TO TRIGGER ANALYSIS</li>
+                <li>• EXTENSION AUTOMATICALLY CHECKS FOR PENDING TRIGGERS</li>
+                <li>• FALSE CLAIMS WILL BE HIGHLIGHTED ON THE WEBPAGE</li>
+                <li>• HOVER OVER HIGHLIGHTS TO SEE CORRECTIONS</li>
+                <li>• CHECK DEBUG LOG ABOVE TO SEE TRIGGER STATUS</li>
               </ul>
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="flex items-center justify-center h-full text-white">
             <div className="text-center">
-              <div className="text-4xl mb-2">🔍</div>
-              <div>Click "Refresh" to extract content</div>
+              <div className="text-4xl mb-6">V</div>
+              <div className="font-black uppercase tracking-wider">CLICK "REFRESH" TO EXTRACT CONTENT</div>
             </div>
           </div>
         )}
@@ -541,10 +567,10 @@ export function DOM({ onAnalysisReady }: DOMProps) {
 
       {/* Footer */}
       {verificationData && (
-        <div className="p-2 border-t bg-gray-50 text-xs text-gray-600 flex justify-between">
-          <span>Content: {verificationData.content.length} chars</span>
-          <span>Sources: {verificationData.sources.length}</span>
-          <span>Domain: {verificationData.domain}</span>
+        <div className="p-6 border-t-4 border-red-500 bg-white text-black font-black uppercase tracking-wide text-xs flex justify-between">
+          <span>CONTENT: {verificationData.content.length} CHARS</span>
+          <span>SOURCES: {verificationData.sources.length}</span>
+          <span>DOMAIN: {verificationData.domain}</span>
         </div>
       )}
     </div>
