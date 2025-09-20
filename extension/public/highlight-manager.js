@@ -160,11 +160,20 @@ class HighlightManager {
     const reportBtn = this.tooltipElement.querySelector('.verihub-report-btn');
     reportBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      
+      // Send message to background script (not directly to extension)
       chrome.runtime.sendMessage({
-        type: 'OPEN_EXTENSION_FOR_ANALYSIS',
-        url: window.location.href,
-        title: document.title
+        type: 'SHOW_REPORT_FORM',
+        reportData: {
+          url: window.location.href,
+          title: document.title,
+          flaggedContent: issue.claim,
+          reason: issue.reason,
+          correction: issue.correction,
+          severity: issue.severity
+        }
       });
+      
       // Hide tooltip after clicking
       if (this.tooltipElement) {
         this.tooltipElement.remove();

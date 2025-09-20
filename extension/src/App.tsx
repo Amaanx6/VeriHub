@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DOM } from './components/DOM';
 import { Verification } from './components/Verification';
 import { AutoTrigger } from './components/AutoTrigger ';
+import ReportForm from './components/ReportForm';
 
 // Simplified type for AI analysis
 interface AnalysisData {
@@ -13,10 +14,21 @@ interface AnalysisData {
   timestamp: string;
 }
 
+interface ReportData {
+  url: string;
+  title: string;
+  flaggedContent: string;
+  reason: string;
+  correction: string;
+  severity: string;
+}
+
 function App() {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [showAutoTrigger, setShowAutoTrigger] = useState(false);
   const [autoTriggerData, setAutoTriggerData] = useState<{url: string, title: string} | null>(null);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
 
   const handleAnalysisReady = (data: AnalysisData) => {
     console.log('📊 App: Clean content ready for AI analysis:', data);
@@ -50,6 +62,34 @@ function App() {
         port.disconnect();
       }
     };
+  }, []);
+
+  // Listen for report form messages
+  useEffect(() => {
+    //@ts-ignore
+    const handleMessage = (message: any, sender: any, sendResponse: any) => {
+      if (message.type === 'SHOW_REPORT_FORM') {
+        console.log('Report form requested with data:', message.reportData);
+        setReportData(message.reportData);
+        setShowReportForm(true);
+        sendResponse({ success: true });
+      }
+    };
+
+    let cleanupFunction: (() => void) | null = null;
+
+    try {
+      if ((window as any).chrome?.runtime?.onMessage) {
+        chrome.runtime.onMessage.addListener(handleMessage);
+        cleanupFunction = () => {
+          chrome.runtime.onMessage.removeListener(handleMessage);
+        };
+      }
+    } catch (error) {
+      console.log('Not in extension context or listener setup failed:', error);
+    }
+
+    return cleanupFunction || (() => {});
   }, []);
 
   // Check for auto-trigger when component mounts
@@ -107,6 +147,24 @@ function App() {
       console.log('Error disabling auto-trigger:', error);
     }
   };
+
+  const handleReportFormClose = () => {
+    setShowReportForm(false);
+    setReportData(null);
+  };
+
+  // Show report form if requested
+  if (showReportForm && reportData) {
+    return (
+      <div className="w-[450px] h-[600px] flex flex-col border relative">
+        <ReportForm 
+          isVisible={true}
+          onClose={handleReportFormClose}
+          reportData={reportData}
+        />
+      </div>
+    );
+  }
 
   // Show auto-trigger UI if we have auto-trigger data
   if (showAutoTrigger && autoTriggerData) {
