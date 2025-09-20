@@ -180,61 +180,71 @@ Instructions:
   }, [data?.pageUrl]);
 
   return (
-    <div className="p-4 border-t bg-gray-50 w-[450px] h-[600px] overflow-auto">
-      <h3 className="font-bold mb-2 text-gray-800">🤖 AI Verification Component</h3>
+    <div className="p-6 border-t-4 border-red-500 bg-black w-[450px] h-[600px] overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <style>{`
+        div::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      <h3 className="font-black text-white text-lg uppercase tracking-wide mb-8">AI VERIFICATION COMPONENT</h3>
 
       {loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-2">
-          <p className="text-blue-700">Analyzing content... ⏳ (Analysis #{analysisCount})</p>
+        <div className="bg-red-500 text-white p-6 border-4 border-white mb-8">
+          <p className="font-black uppercase tracking-wide">ANALYZING CONTENT... (ANALYSIS #{analysisCount})</p>
         </div>
       )}
       
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-2 mb-2">
-          <p className="text-red-700">{error}</p>
+        <div className="bg-red-500 text-white p-6 border-4 border-white mb-8">
+          <p className="font-black uppercase tracking-wide">{error}</p>
         </div>
       )}
 
       {!data && !loading && (
-        <p className="text-gray-600">Waiting for analysis trigger from webpage popup or manual button...</p>
+        <p className="text-white font-bold uppercase tracking-wide">WAITING FOR ANALYSIS TRIGGER FROM WEBPAGE POPUP OR MANUAL BUTTON...</p>
       )}
 
       {data && (
-        <div className="bg-green-50 border border-green-200 rounded p-2 mb-3">
-          <p className="font-medium text-green-800">✅ Data received for analysis</p>
-          <p className="text-green-700 text-sm">URL: {data.pageUrl}</p>
-          <p className="text-green-700 text-sm">Timestamp: {new Date(data.timestamp).toLocaleTimeString()}</p>
-          <p className="text-green-700 text-sm">Content: {data.fullContent.length} chars</p>
-          <p className="text-green-700 text-sm">Total analyses run: {analysisCount}</p>
+        <div className="bg-green-400 text-black p-6 border-4 border-white mb-8">
+          <p className="font-black uppercase tracking-wide mb-4">DATA RECEIVED FOR ANALYSIS</p>
+          <p className="font-bold uppercase tracking-wide text-sm">URL: {data.pageUrl}</p>
+          <p className="font-bold uppercase tracking-wide text-sm">TIMESTAMP: {new Date(data.timestamp).toLocaleTimeString()}</p>
+          <p className="font-bold uppercase tracking-wide text-sm">CONTENT: {data.fullContent.length} CHARS</p>
+          <p className="font-bold uppercase tracking-wide text-sm">TOTAL ANALYSES RUN: {analysisCount}</p>
         </div>
       )}
 
       {data && verificationResult && (
-        <div className="space-y-3">
-          <div className="bg-gray-50 border border-gray-200 rounded p-2">
-            <h4 className="font-semibold mb-1">📝 AI Analysis Summary</h4>
-            <p className="text-sm text-gray-700">{verificationResult.summary}</p>
+        <div className="space-y-8">
+          <div className="bg-gray-800 p-6 border-4 border-white">
+            <h4 className="font-black text-white uppercase tracking-wide mb-4">AI ANALYSIS SUMMARY</h4>
+            <p className="text-white font-bold uppercase tracking-wide text-sm">{verificationResult.summary}</p>
           </div>
 
           {verificationResult.issues.length > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
-              <h4 className="font-semibold mb-2">⚠️ Flagged Issues ({verificationResult.issues.length})</h4>
-              <p className="text-xs text-gray-600 mb-2">False claims have been highlighted on the webpage</p>
-              <div className="space-y-1 max-h-64 overflow-y-auto">
+            <div className="bg-red-500 text-white p-6 border-4 border-white">
+              <h4 className="font-black uppercase tracking-wide mb-6">FLAGGED ISSUES ({verificationResult.issues.length})</h4>
+              <p className="text-white font-bold uppercase tracking-wide text-xs mb-6">FALSE CLAIMS HAVE BEEN HIGHLIGHTED ON THE WEBPAGE</p>
+              <div className="space-y-4 max-h-64 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <style>{`
+                  div::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
                 {verificationResult.issues.map((issue, idx) => (
-                  <div key={idx} className="bg-white border border-yellow-100 rounded p-2 text-sm">
-                    <p><strong>Claim:</strong> {issue.claim}</p>
-                    <p><strong>Reason:</strong> {issue.reason}</p>
-                    <p><strong>Severity:</strong> 
-                      <span className={`ml-1 px-2 py-0.5 rounded text-xs ${
-                        issue.severity === 'high' ? 'bg-red-100 text-red-800' :
-                        issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-blue-100 text-blue-800'
+                  <div key={idx} className="bg-white text-black border-4 border-gray-800 p-4">
+                    <p className="font-black uppercase tracking-wide text-sm mb-2"><strong>CLAIM:</strong> {issue.claim}</p>
+                    <p className="font-black uppercase tracking-wide text-sm mb-2"><strong>REASON:</strong> {issue.reason}</p>
+                    <p className="font-black uppercase tracking-wide text-sm mb-2"><strong>SEVERITY:</strong> 
+                      <span className={`ml-2 px-3 py-1 border-2 font-black uppercase tracking-wide text-xs ${
+                        issue.severity === 'high' ? 'bg-red-500 text-white border-white' :
+                        issue.severity === 'medium' ? 'bg-red-500 text-white border-white' :
+                        'bg-gray-800 text-white border-white'
                       }`}>
                         {issue.severity}
                       </span>
                     </p>
-                    <p><strong>Correction:</strong> {issue.correction}</p>
+                    <p className="font-black uppercase tracking-wide text-sm"><strong>CORRECTION:</strong> {issue.correction}</p>
                   </div>
                 ))}
               </div>
@@ -242,8 +252,8 @@ Instructions:
           )}
 
           {verificationResult.issues.length === 0 && !verificationResult.flagged && (
-            <div className="bg-green-50 border border-green-200 rounded p-2">
-              <p className="text-sm text-green-700">✅ No issues detected by AI.</p>
+            <div className="bg-green-400 text-black p-6 border-4 border-white">
+              <p className="font-black uppercase tracking-wide text-sm">NO ISSUES DETECTED BY AI.</p>
             </div>
           )}
         </div>
