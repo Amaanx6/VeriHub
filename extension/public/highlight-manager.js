@@ -14,46 +14,50 @@ class HighlightManager {
     style.id = "verihub-styles";
     style.textContent = `
       .verihub-highlight {
-        background-color: rgba(255, 193, 7, 0.3) !important;
-        border-bottom: 2px wavy #dc3545 !important;
+        background-color: rgba(239, 68, 68, 0.3) !important;
+        border-bottom: 3px solid #000000 !important;
         cursor: help !important;
         position: relative !important;
         display: inline !important;
-        padding: 1px 2px !important;
-        border-radius: 2px !important;
+        padding: 0px !important;
+        font-weight: normal !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
       }
      
       .verihub-highlight.severity-high {
-        background-color: rgba(220, 53, 69, 0.3) !important;
-        border-bottom-color: #dc3545 !important;
+        background-color: rgba(239, 68, 68, 0.3) !important;
+        border-color: #ef4444 !important;
       }
      
       .verihub-highlight.severity-medium {
-        background-color: rgba(255, 193, 7, 0.3) !important;
-        border-bottom-color: #ffc107 !important;
+        background-color: rgba(239, 68, 68, 0.2) !important;
+        border-color: #ef4444 !important;
       }
      
       .verihub-highlight.severity-low {
-        background-color: rgba(13, 202, 240, 0.3) !important;
-        border-bottom-color: #0dcaf0 !important;
+        background-color: rgba(107, 114, 128, 0.3) !important;
+        border-color: #6b7280 !important;
       }
       
       .verihub-tooltip {
         position: absolute !important;
         z-index: 999999 !important;
-        background: #333 !important;
+        background: #000000 !important;
         color: white !important;
-        padding: 12px !important;
-        border-radius: 8px !important;
+        padding: 16px !important;
+        border: 4px solid #ef4444 !important;
         font-size: 14px !important;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-        max-width: 300px !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        font-weight: bold !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        max-width: 400px !important;
         line-height: 1.4 !important;
         pointer-events: auto !important;
         opacity: 0 !important;
         transform: translateY(10px) !important;
-        transition: opacity 0.2s ease, transform 0.2s ease !important;
+        transition: opacity 0.3s ease, transform 0.3s ease !important;
       }
       
       .verihub-tooltip.show {
@@ -61,75 +65,91 @@ class HighlightManager {
         transform: translateY(0) !important;
       }
       
-      .verihub-tooltip::before {
-        content: '' !important;
-        position: absolute !important;
-        top: -5px !important;
-        left: 20px !important;
-        border: 5px solid transparent !important;
-        border-bottom-color: #333 !important;
+      .verihub-tooltip-header {
+        font-weight: 900 !important;
+        margin-bottom: 8px !important;
+        color: #ef4444 !important;
+        font-size: 16px !important;
+        border-bottom: 2px solid #ef4444 !important;
+        padding-bottom: 4px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
       }
       
-      .verihub-tooltip-header {
-        font-weight: bold !important;
+      .verihub-tooltip-content {
+        background: #1f2937 !important;
+        padding: 8px !important;
+        border: 2px solid #ffffff !important;
         margin-bottom: 8px !important;
-        color: #ff6b6b !important;
       }
       
       .verihub-tooltip-correction {
-        margin-top: 8px !important;
-        padding-top: 8px !important;
-        border-top: 1px solid #555 !important;
-        color: #90ee90 !important;
+        background: #065f46 !important;
+        color: #10b981 !important;
+        padding: 8px !important;
+        border: 2px solid #ffffff !important;
+        margin-bottom: 8px !important;
       }
       
       .verihub-tooltip-report {
-        margin-top: 8px !important;
+        text-align: center !important;
+        border-top: 2px solid #ef4444 !important;
         padding-top: 8px !important;
-        border-top: 1px solid #555 !important;
       }
       
       .verihub-report-btn {
-        background: #dc2626 !important;
+        background: #ef4444 !important;
         color: white !important;
-        border: none !important;
-        padding: 6px 12px !important;
-        border-radius: 4px !important;
-        font-size: 11px !important;
-        font-weight: 600 !important;
+        border: 4px solid #ffffff !important;
+        padding: 8px 16px !important;
+        font-size: 12px !important;
+        font-weight: 900 !important;
         cursor: pointer !important;
-        transition: background-color 0.2s !important;
+        transition: all 0.2s !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
+        letter-spacing: 1px !important;
+        transform: scale(1) !important;
       }
       
       .verihub-report-btn:hover {
-        background: #b91c1c !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        transform: scale(1.05) !important;
       }
       
       .verihub-tooltip-severity {
         display: inline-block !important;
-        padding: 2px 6px !important;
-        border-radius: 12px !important;
-        font-size: 11px !important;
-        font-weight: bold !important;
+        padding: 4px 8px !important;
+        border: 2px solid #ffffff !important;
+        font-size: 10px !important;
+        font-weight: 900 !important;
         text-transform: uppercase !important;
-        margin-left: 8px !important;
+        letter-spacing: 1px !important;
       }
       
       .verihub-tooltip-severity.high {
-        background: #dc3545 !important;
+        background: #ef4444 !important;
         color: white !important;
       }
       
       .verihub-tooltip-severity.medium {
-        background: #ffc107 !important;
-        color: #333 !important;
+        background: #ef4444 !important;
+        color: white !important;
       }
       
       .verihub-tooltip-severity.low {
-        background: #0dcaf0 !important;
-        color: #333 !important;
+        background: #6b7280 !important;
+        color: white !important;
+      }
+
+      .verihub-tooltip-section-label {
+        font-weight: 900 !important;
+        color: #ffffff !important;
+        font-size: 12px !important;
+        margin-bottom: 4px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
       }
     `;
     
@@ -147,15 +167,19 @@ class HighlightManager {
     this.tooltipElement.className = "verihub-tooltip";
     this.tooltipElement.innerHTML = `
       <div class="verihub-tooltip-header">
-        False Claim Detected
+        MISINFORMATION DETECTED
         <span class="verihub-tooltip-severity ${issue.severity}">${issue.severity}</span>
       </div>
-      <div><strong>Reason:</strong> ${issue.reason}</div>
+      <div class="verihub-tooltip-content">
+        <div class="verihub-tooltip-section-label">WHY IT'S FALSE</div>
+        <div>${issue.reason}</div>
+      </div>
       <div class="verihub-tooltip-correction">
-        <strong>Correction:</strong> ${issue.correction}
+        <div class="verihub-tooltip-section-label">CORRECT INFORMATION</div>
+        <div>${issue.correction}</div>
       </div>
       <div class="verihub-tooltip-report">
-        <button class="verihub-report-btn">Report Content</button>
+        <button class="verihub-report-btn">REPORT CONTENT</button>
       </div>
     `;
     
@@ -213,17 +237,21 @@ class HighlightManager {
     const tooltipRect = tooltip.getBoundingClientRect();
 
     let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
-    let top = rect.bottom + 10 + window.scrollY;
+    let top = rect.bottom + 15 + window.scrollY;
     
-    // Adjust if tooltip would go off screen
+    // Adjust if tooltip would go off screen horizontally
     if (left < 10) left = 10;
     if (left + tooltipRect.width > window.innerWidth - 10) {
       left = window.innerWidth - tooltipRect.width - 10;
     }
     
-    // If tooltip would go below fold, show above element
-    if (top + tooltipRect.height > window.innerHeight + window.scrollY - 10) {
-      top = rect.top + window.scrollY - tooltipRect.height - 10;
+    // Check if there's enough space below
+    const spaceBelow = window.innerHeight - (rect.bottom + 15);
+    const spaceAbove = rect.top - 15;
+    
+    // Only show above if there's significantly more space above AND not enough space below
+    if (spaceBelow < tooltipRect.height && spaceAbove > spaceBelow + 50) {
+      top = rect.top + window.scrollY - tooltipRect.height - 15;
     }
     
     tooltip.style.left = `${left}px`;
@@ -401,15 +429,16 @@ class HighlightManager {
             keyWords.some((word) => text.toLowerCase().includes(word))
           ) {
             try {
-              para.style.backgroundColor = "rgba(255, 193, 7, 0.2)";
-              para.style.borderLeft = "4px solid #ffc107";
-              para.style.paddingLeft = "8px";
+              para.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
+              para.style.borderLeft = "6px solid #ef4444";
+              para.style.paddingLeft = "12px";
               para.style.cursor = "help";
+              para.style.fontWeight = "bold";
               para.setAttribute("data-verihub-fallback", JSON.stringify(issue));
 
               para.addEventListener("click", () => {
                 alert(
-                  `False Claim Detected (${issue.severity})\n\nReason: ${issue.reason}\n\nCorrection: ${issue.correction}`
+                  `MISINFORMATION DETECTED (${issue.severity.toUpperCase()})\n\nREASON: ${issue.reason.toUpperCase()}\n\nCORRECTION: ${issue.correction.toUpperCase()}`
                 );
               });
 
@@ -470,6 +499,7 @@ class HighlightManager {
           element.style.borderLeft = "";
           element.style.paddingLeft = "";
           element.style.cursor = "";
+          element.style.fontWeight = "";
           element.removeAttribute("data-verihub-fallback");
         } else {
           // Move text back to parent and remove highlight wrapper
