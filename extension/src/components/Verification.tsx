@@ -180,7 +180,7 @@ Instructions:
   }, [data?.pageUrl]);
 
   return (
-    <div className="p-6 border-t-4 border-red-500 bg-black w-[450px] h-[600px] overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+    <div className="p-6 border-t-4 border-red-500 bg-black w-[450px] h-full overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
       <style>{`
         div::-webkit-scrollbar {
           display: none;
@@ -190,7 +190,79 @@ Instructions:
 
       {loading && (
         <div className="bg-red-500 text-white p-6 border-4 border-white mb-8">
-          <p className="font-black uppercase tracking-wide">ANALYZING CONTENT... (ANALYSIS #{analysisCount})</p>
+          <div className="text-center space-y-6">
+            <h4 className="font-black text-3xl uppercase tracking-wider mb-6">AI VERIFICATION ENGINE</h4>
+            
+            <div className="bg-black p-6 border-2 border-white">
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                <div className="bg-gray-800 h-12 border border-white flex items-center justify-center">
+                  <div className="w-8 h-8 bg-white animate-pulse"></div>
+                </div>
+                <div className="bg-gray-800 h-12 border border-white flex items-center justify-center">
+                  <div className="w-8 h-8 bg-white animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+                <div className="bg-gray-800 h-12 border border-white flex items-center justify-center">
+                  <div className="w-8 h-8 bg-white animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+                <div className="bg-gray-800 h-12 border border-white flex items-center justify-center">
+                  <div className="w-8 h-8 bg-white animate-pulse" style={{ animationDelay: '0.6s' }}></div>
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <p className="font-black uppercase tracking-wide text-sm mb-2">NEURAL NETWORK CORES ACTIVE</p>
+                <div className="flex justify-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 animate-pulse"></div>
+                  <div className="w-2 h-2 bg-green-400 animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-green-400 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-green-400 animate-pulse" style={{ animationDelay: '0.3s' }}></div>
+                  <div className="w-2 h-2 bg-green-400 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-black p-4 border-2 border-white">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-black uppercase tracking-wide text-sm">CONTENT ANALYSIS</span>
+                  <span className="font-black uppercase tracking-wide text-xs">COMPLETE</span>
+                </div>
+                <div className="w-full bg-gray-800 h-2 border border-white">
+                  <div className="bg-green-400 h-full" style={{ width: '100%' }}></div>
+                </div>
+              </div>
+
+              <div className="bg-black p-4 border-2 border-white">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-black uppercase tracking-wide text-sm">FACT VERIFICATION</span>
+                  <span className="font-black uppercase tracking-wide text-xs">PROCESSING</span>
+                </div>
+                <div className="w-full bg-gray-800 h-2 border border-white">
+                  <div className="bg-white h-full animate-pulse" style={{ width: '70%' }}></div>
+                </div>
+              </div>
+
+              <div className="bg-black p-4 border-2 border-white">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-black uppercase tracking-wide text-sm">MISINFORMATION DETECTION</span>
+                  <span className="font-black uppercase tracking-wide text-xs">SCANNING</span>
+                </div>
+                <div className="w-full bg-gray-800 h-2 border border-white">
+                  <div className="bg-white h-full animate-pulse" style={{ width: '40%' }}></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-black p-4 border-2 border-white">
+              <div className="flex items-center justify-center space-x-4">
+                <div className="w-4 h-4 bg-white border border-gray-800 animate-pulse"></div>
+                <p className="font-black uppercase tracking-wide text-sm">
+                  ANALYSIS #{analysisCount} • ENTERPRISE AI DEPLOYMENT
+                </p>
+                <div className="w-4 h-4 bg-white border border-gray-800 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       
