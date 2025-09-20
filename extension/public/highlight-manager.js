@@ -90,18 +90,21 @@ class HighlightManager {
       }
       
       .verihub-report-btn {
-        background: #3b82f6 !important;
+        background: #dc2626 !important;
         color: white !important;
         border: none !important;
-        padding: 4px 8px !important;
+        padding: 6px 12px !important;
         border-radius: 4px !important;
         font-size: 11px !important;
+        font-weight: 600 !important;
         cursor: pointer !important;
         transition: background-color 0.2s !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
       }
       
       .verihub-report-btn:hover {
-        background: #2563eb !important;
+        background: #b91c1c !important;
       }
       
       .verihub-tooltip-severity {
@@ -152,7 +155,7 @@ class HighlightManager {
         <strong>Correction:</strong> ${issue.correction}
       </div>
       <div class="verihub-tooltip-report">
-        <button class="verihub-report-btn">Report Issue</button>
+        <button class="verihub-report-btn">Report Content</button>
       </div>
     `;
     
