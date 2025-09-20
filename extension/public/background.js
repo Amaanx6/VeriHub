@@ -120,6 +120,13 @@ async function triggerAutoPopup(url, title) {
 
     console.log('✅ Auto-trigger data stored');
 
+    // Check if there's an active window first
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    if (windows.length === 0) {
+      console.log('❌ No active browser windows found, skipping popup trigger');
+      return;
+    }
+
     // Get current active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
