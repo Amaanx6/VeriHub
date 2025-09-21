@@ -12,7 +12,7 @@ export function Hero() {
       {/* Background Effects */}
       <div className="absolute inset-0 bg-cyber-glow opacity-50" />
       <div className="absolute inset-0 bg-veri-gradient-subtle" />
-      
+
       {/* Animated background particles */}
       <div className="absolute inset-0">
         {[...Array(20)].map((_, i) => (
@@ -85,16 +85,17 @@ export function Hero() {
                   </Link>
                 </motion.div>
 
+
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <Link
-                    href="/demo"
+                    href="/forensics"
                     className="btn-secondary flex items-center justify-center space-x-2 text-lg px-8 py-4"
                   >
-                    <Play className="h-5 w-5" />
-                    <span>Try Interactive Demo</span>
+                    <Shield className="h-5 w-5" />
+                    <span>Explore Forensics</span>
                   </Link>
                 </motion.div>
               </div>

@@ -5,7 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Menu, X, Github, Download } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
+// Add this utility function if it's missing
+function cn(...classes: (string | undefined | null | boolean)[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -14,7 +18,7 @@ export function Header() {
 
   const navigation = [
     { name: 'Home', href: '/' },
-    { name: 'Features', href: '/features' },
+    { name: 'Forensics', href: '/forensics' },
     { name: 'Demo', href: '/demo' },
     { name: 'How It Works', href: '/how-it-works' },
     { name: 'Download', href: '/download' },
@@ -64,7 +68,7 @@ export function Header() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'relative text-sm font-medium transition-colors hover:text-veri-purple',
+                  'relative text-sm font-medium transition-colors hover:text-veri-purple py-2 px-1',
                   pathname === item.href
                     ? 'text-veri-purple'
                     : 'text-veri-gray-light hover:text-white'
@@ -84,17 +88,19 @@ export function Header() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link
+            <a
               href="https://github.com/verihub/extension"
-              className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors py-2 px-3"
             >
               <Github className="h-5 w-5" />
               <span className="text-sm">Star</span>
-            </Link>
+            </a>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link
                 href="/download"
-                className="btn-primary flex items-center space-x-2"
+                className="btn-primary flex items-center space-x-2 py-2 px-4"
               >
                 <Download className="h-4 w-4" />
                 <span>Get Extension</span>
@@ -105,7 +111,8 @@ export function Header() {
           {/* Mobile menu button */}
           <button
             onClick={toggleMenu}
-            className="md:hidden text-veri-gray-light hover:text-white transition-colors"
+            className="md:hidden text-veri-gray-light hover:text-white transition-colors p-2"
+            aria-label="Toggle menu"
           >
             {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -129,27 +136,29 @@ export function Header() {
                   href={item.href}
                   onClick={toggleMenu}
                   className={cn(
-                    'block text-base font-medium transition-colors',
+                    'block text-base font-medium transition-colors py-2 px-2 rounded-md',
                     pathname === item.href
-                      ? 'text-veri-purple'
-                      : 'text-veri-gray-light hover:text-white'
+                      ? 'text-veri-purple bg-veri-purple/10'
+                      : 'text-veri-gray-light hover:text-white hover:bg-white/5'
                   )}
                 >
                   {item.name}
                 </Link>
               ))}
               <div className="flex flex-col space-y-3 pt-4 border-t border-veri-purple/20">
-                <Link
+                <a
                   href="https://github.com/verihub/extension"
-                  className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors py-2 px-2 rounded-md hover:bg-white/5"
                   onClick={toggleMenu}
                 >
                   <Github className="h-5 w-5" />
                   <span>Star on GitHub</span>
-                </Link>
+                </a>
                 <Link
                   href="/download"
-                  className="btn-primary flex items-center space-x-2 justify-center"
+                  className="btn-primary flex items-center space-x-2 justify-center py-3"
                   onClick={toggleMenu}
                 >
                   <Download className="h-4 w-4" />
