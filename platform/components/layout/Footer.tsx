@@ -22,9 +22,9 @@ export function Footer() {
       { name: 'Terms of Service', href: '#' },
     ],
     social: [
-      { name: 'GitHub', href: 'https://github.com/verihub', icon: Github },
-      { name: 'Twitter', href: 'https://twitter.com/verihub', icon: Twitter },
-      { name: 'Email', href: 'mailto:hello@verihub.com', icon: Mail },
+      { name: 'GitHub', href: 'https://github.com/mohfazam2/VeriHub', icon: Github },
+      { name: 'Twitter', href: '#', icon: Twitter },
+      { name: 'Email', href: '#', icon: Mail },
     ],
   };
 

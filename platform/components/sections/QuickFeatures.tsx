@@ -1,7 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Shield, Zap, MessageCircle, Flag, Eye, Brain } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Shield, Zap, MessageCircle, Flag, Eye, Brain, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { AnimatedSection } from '@/components/ui/AnimatedSection';
 
@@ -57,6 +58,54 @@ const features = [
 ];
 
 export function QuickFeatures() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(0); // 0: none, 1: right, -1: left
+
+  const itemsPerPage = 3;
+  const totalPages = Math.ceil(features.length / itemsPerPage);
+
+  const nextSlide = useCallback(() => {
+    setDirection(1);
+    setCurrentIndex((prevIndex) => 
+      prevIndex + 1 >= totalPages ? 0 : prevIndex + 1
+    );
+  }, [totalPages]);
+
+  const prevSlide = useCallback(() => {
+    setDirection(-1);
+    setCurrentIndex((prevIndex) => 
+      prevIndex - 1 < 0 ? totalPages - 1 : prevIndex - 1
+    );
+  }, [totalPages]);
+
+  // Get current features to display
+  const currentFeatures = features.slice(
+    currentIndex * itemsPerPage,
+    (currentIndex + 1) * itemsPerPage
+  );
+
+  // Handle cases where we don't have enough features to fill the page
+  const visibleFeatures = [...currentFeatures];
+  while (visibleFeatures.length < itemsPerPage) {
+    visibleFeatures.push(features[visibleFeatures.length % features.length]);
+  }
+
+  // Variants for animation
+  const variants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 300 : -300,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction: number) => ({
+      x: direction < 0 ? 300 : -300,
+      opacity: 0,
+    }),
+  };
+
   return (
     <section className="relative py-24 overflow-hidden">
       {/* Background Effects - Matching Hero */}
@@ -107,51 +156,82 @@ export function QuickFeatures() {
           </motion.p>
         </AnimatedSection>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <AnimatedSection
-              key={feature.title}
-              delay={index * 0.1}
-            >
+        {/* Carousel Container */}
+        <div className="relative flex items-center">
+          {/* Left Navigation Arrow */}
+          <button
+            onClick={prevSlide}
+            className="z-10 text-veri-purple hover:text-white transition-colors duration-300 mr-8"
+            aria-label="Previous features"
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </button>
+          
+          {/* Carousel Content */}
+          <div className="flex-1 overflow-hidden">
+            <AnimatePresence custom={direction} mode="wait" initial={false}>
               <motion.div
-                className={`group p-6 rounded-xl bg-dark-surface-2/80 backdrop-blur-sm border ${feature.borderColor} hover:border-veri-purple/40 transition-all duration-300 h-full`}
-                whileHover={{ 
-                  y: -4,
-                  scale: 1.02,
-                  boxShadow: "0 10px 30px -10px rgba(139, 92, 246, 0.3)"
-                }}
-                transition={{ duration: 0.2 }}
+                key={currentIndex}
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
               >
-                <motion.div
-                  className={`${feature.bgColor} w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
-                  whileHover={{ rotate: 5 }}
-                >
-                  <feature.icon className={`h-6 w-6 ${feature.color}`} />
-                </motion.div>
-                
-                <h3 className="text-xl font-semibold text-white mb-3">
-                  {feature.title}
-                </h3>
-                
-                <p className="text-veri-gray-light mb-4 leading-relaxed">
-                  {feature.description}
-                </p>
-
-                <motion.div
-                  className={`${feature.color} text-sm font-medium flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-                  whileHover={{ x: 5 }}
-                >
-                  <span>Learn more</span>
-                  <motion.span
-                    animate={{ x: [0, 3, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
+                {visibleFeatures.map((feature, index) => (
+                  <motion.div
+                    key={`${currentIndex}-${feature.title}`}
+                    className={`group p-6 rounded-xl bg-dark-surface-2/80 backdrop-blur-sm border ${feature.borderColor} hover:border-veri-purple/40 transition-all duration-300 h-full`}
+                    whileHover={{ 
+                      y: -4,
+                      scale: 1.02,
+                      boxShadow: "0 10px 30px -10px rgba(139, 92, 246, 0.3)"
+                    }}
+                    transition={{ duration: 0.2, delay: index * 0.1 }}
                   >
-                    →
-                  </motion.span>
-                </motion.div>
+                    <motion.div
+                      className={`${feature.bgColor} w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
+                      whileHover={{ rotate: 5 }}
+                    >
+                      <feature.icon className={`h-6 w-6 ${feature.color}`} />
+                    </motion.div>
+                    
+                    <h3 className="text-xl font-semibold text-white mb-3">
+                      {feature.title}
+                    </h3>
+                    
+                    <p className="text-veri-gray-light mb-4 leading-relaxed">
+                      {feature.description}
+                    </p>
+
+                    <motion.div
+                      className={`${feature.color} text-sm font-medium flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                      whileHover={{ x: 5 }}
+                    >
+                      <span>Learn more</span>
+                      <motion.span
+                        animate={{ x: [0, 3, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        →
+                      </motion.span>
+                    </motion.div>
+                  </motion.div>
+                ))}
               </motion.div>
-            </AnimatedSection>
-          ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Right Navigation Arrow */}
+          <button
+            onClick={nextSlide}
+            className="z-10 text-veri-purple hover:text-white transition-colors duration-300 ml-8"
+            aria-label="Next features"
+          >
+            <ChevronRight className="h-8 w-8" />
+          </button>
         </div>
 
         <AnimatedSection delay={0.6} className="text-center mt-16">
@@ -160,7 +240,7 @@ export function QuickFeatures() {
             whileTap={{ scale: 0.95 }}
           >
             <Link
-              href="/features"
+              href="/demo"
               className="btn-primary inline-flex items-center space-x-2 text-lg px-8 py-4"
             >
               <span>Explore All Features</span>
