@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "mysql", "sqlite", etc.
+  url      = env("DATABASE_URL")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Content identification
+  url         String   @unique
+  title       String
+  flaggedContent String?
+  reportCount Int      @default(1)
+  
+  // Report details
+  category    ReportCategory
+  reason      String?
+  description String
+  additionalContext String?
+  correction  String?
+  severity    ReportSeverity @default(MEDIUM)
+  
+  // User info
+  userEmail   String?
+  
+  // Technical metadata
+  timestamp   DateTime @default(now())
+  userAgent   String?
+  referrer    String?
+  
+  // Status tracking
+  status      ReportStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  reviewNotes String?
+
+  @@map("reports")
+}
+
+enum ReportCategory {
+  MISINFORMATION
+  FAKE_NEWS
+  MISLEADING
+  FACTUAL_ERROR
+  OTHER
+
+  @@map("report_category")
+}
+
+enum ReportSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("report_severity")
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+  ESCALATED
+
+  @@map("report_status")
+}
