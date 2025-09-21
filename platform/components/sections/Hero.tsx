@@ -2,11 +2,21 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Shield, Zap, Eye, Download } from 'lucide-react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AnimatedSection } from '@/components/ui/AnimatedSection';
 import { BrowserMockup } from '@/components/ui/BrowserMockup';
 
 export function Hero() {
+  const router = useRouter();
+
+  const handleDownloadClick = () => {
+    router.push('/download');
+  };
+
+  const handleForensicsClick = () => {
+    router.push('/forensics');
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Effects */}
@@ -72,32 +82,25 @@ export function Hero() {
 
             <AnimatedSection delay={0.3}>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <motion.div
+                <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={handleDownloadClick}
+                  className="btn-primary flex items-center justify-center space-x-2 text-lg px-8 py-4 cursor-pointer"
                 >
-                  <Link
-                    href="/download"
-                    className="btn-primary flex items-center justify-center space-x-2 text-lg px-8 py-4"
-                  >
-                    <Download className="h-5 w-5" />
-                    <span>Download Extension Free</span>
-                  </Link>
-                </motion.div>
+                  <Download className="h-5 w-5" />
+                  <span>Download Extension Free</span>
+                </motion.button>
 
-
-                <motion.div
+                <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={handleForensicsClick}
+                  className="btn-secondary flex items-center justify-center space-x-2 text-lg px-8 py-4 cursor-pointer"
                 >
-                  <Link
-                    href="/forensics"
-                    className="btn-secondary flex items-center justify-center space-x-2 text-lg px-8 py-4"
-                  >
-                    <Shield className="h-5 w-5" />
-                    <span>Explore Forensics</span>
-                  </Link>
-                </motion.div>
+                  <Shield className="h-5 w-5" />
+                  <span>Explore Forensics</span>
+                </motion.button>
               </div>
             </AnimatedSection>
 
