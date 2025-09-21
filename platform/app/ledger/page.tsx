@@ -15,7 +15,12 @@ import {
   User,
   X,
   TrendingUp,
-  Globe
+  Globe,
+  RefreshCw,
+  AlertCircle,
+  ExternalLink,
+  Activity,
+  Zap
 } from 'lucide-react';
 
 // AnimatedSection component definition
@@ -100,160 +105,333 @@ interface SourceProfileResponse {
   };
 }
 
-// In-memory cache instead of localStorage
-let reportsCache: Report[] | null = null;
-let cacheTimestamp: number = 0;
-let sourceProfileCache: SourceProfileResponse | null = null;
-let sourceProfileCacheTimestamp: number = 0;
-
-// API service functions
+// API service functions (removed caching)
 const API_BASE_URL = 'https://verihubbackend.vercel.app/api';
 
 const fetchReports = async (): Promise<Report[]> => {
   try {
-    // Check in-memory cache first
-    const age = Date.now() - cacheTimestamp;
-    if (reportsCache && age < 5 * 60 * 1000) { // 5 minutes
-      return reportsCache;
+    console.log('Fetching reports from:', `${API_BASE_URL}/reports/list`);
+    const response = await fetch(`${API_BASE_URL}/reports/list`, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    // Fetch fresh data
-    const response = await fetch(`${API_BASE_URL}/reports/list`);
     const data = await response.json();
+    console.log('Reports response:', data);
     
-    if (data.success) {
-      // Cache the results in memory
-      reportsCache = data.data;
-      cacheTimestamp = Date.now();
+    if (data.success && Array.isArray(data.data)) {
       return data.data;
     }
     
-    throw new Error('Failed to fetch reports');
+    throw new Error(data.message || 'Invalid response format');
   } catch (error) {
     console.error('Error fetching reports:', error);
-    
-    // Fallback to cache even if stale
-    if (reportsCache) {
-      return reportsCache;
-    }
-    
     throw error;
   }
 };
 
 const fetchSourceProfile = async (): Promise<SourceProfileResponse> => {
   try {
-    // Check in-memory cache first
-    const age = Date.now() - sourceProfileCacheTimestamp;
-    if (sourceProfileCache && age < 10 * 60 * 1000) { // 10 minutes
-      return sourceProfileCache;
+    console.log('Fetching source profile from:', `${API_BASE_URL}/reports/source-profile`);
+    const response = await fetch(`${API_BASE_URL}/reports/source-profile`, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    console.log('Source profile response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    // Fetch fresh data
-    const response = await fetch(`${API_BASE_URL}/reports/source-profile`);
     const data = await response.json();
+    console.log('Source profile response:', data);
     
     if (data.success) {
-      // Cache the results in memory
-      sourceProfileCache = data;
-      sourceProfileCacheTimestamp = Date.now();
       return data;
     }
     
-    throw new Error('Failed to fetch source profile');
+    throw new Error(data.message || 'API returned unsuccessful response');
   } catch (error) {
     console.error('Error fetching source profile:', error);
-    
-    // Fallback to cache even if stale
-    if (sourceProfileCache) {
-      return sourceProfileCache;
-    }
-    
     throw error;
   }
 };
 
-// Source Pooling Card Component
-const SourcePoolingCard: React.FC<{ sourceData: SourceProfileResponse | null }> = ({ sourceData }) => {
+// Enhanced Source Pooling Card Component
+const SourcePoolingCard: React.FC<{ 
+  sourceData: SourceProfileResponse | null; 
+  loading: boolean; 
+  error: string | null; 
+  onRefresh: () => void 
+}> = ({ sourceData, loading, error, onRefresh }) => {
   const getTrustScoreColor = (score: number) => {
     if (score >= 70) return 'text-emerald-400';
     if (score >= 40) return 'text-yellow-400';
     return 'text-red-400';
   };
 
-  if (!sourceData) {
-    return (
-      <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white flex items-center">
-            <Globe className="h-5 w-5 mr-2 text-purple-500" />
-            Source Pooling
-          </h3>
-          <TrendingUp className="h-5 w-5 text-gray-400" />
+  const getTrustScoreBg = (score: number) => {
+    if (score >= 70) return 'bg-emerald-500';
+    if (score >= 40) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getRiskBadgeColor = (score: number) => {
+    if (score >= 70) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50';
+    if (score >= 40) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50';
+    return 'bg-red-500/20 text-red-300 border-red-500/50';
+  };
+
+  const formatTimeAgo = (timestamp: string) => {
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  return (
+    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-purple-500/20 rounded-lg">
+            <Globe className="h-6 w-6 text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-white">Source Intelligence</h3>
+            <p className="text-sm text-gray-400">Domain risk analysis & tracking</p>
+          </div>
         </div>
-        <div className="space-y-3">
+        <div className="flex items-center space-x-2">
+          {sourceData && (
+            <span className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded">
+              {formatTimeAgo(sourceData.analysis_timestamp)}
+            </span>
+          )}
+          <motion.button
+            onClick={onRefresh}
+            disabled={loading}
+            className="p-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors disabled:opacity-50"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <RefreshCw className={`h-4 w-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+            <div>
+              <h4 className="text-red-300 font-medium">Failed to load source data</h4>
+              <p className="text-red-200 text-sm mt-1">{error}</p>
+              <button 
+                onClick={onRefresh}
+                className="mt-2 text-sm text-red-400 hover:text-red-300 underline"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && !sourceData && (
+        <div className="space-y-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="flex justify-between items-center mb-2">
-                <div className="h-4 bg-gray-700 rounded w-24"></div>
-                <div className="h-4 bg-gray-700 rounded w-12"></div>
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="h-8 w-8 bg-gray-700 rounded-lg"></div>
+                  <div>
+                    <div className="h-4 bg-gray-700 rounded w-32 mb-1"></div>
+                    <div className="h-3 bg-gray-700 rounded w-20"></div>
+                  </div>
+                </div>
+                <div className="h-6 bg-gray-700 rounded w-12"></div>
               </div>
-              <div className="h-2 bg-gray-700 rounded w-full"></div>
+              <div className="h-2 bg-gray-700 rounded w-full mb-2"></div>
+              <div className="flex space-x-1">
+                <div className="h-4 bg-gray-700 rounded w-12"></div>
+                <div className="h-4 bg-gray-700 rounded w-16"></div>
+              </div>
             </div>
           ))}
         </div>
-      </div>
-    );
-  }
+      )}
 
-  const topSources = sourceData.sources.slice(0, 4);
-
-  return (
-    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white flex items-center">
-          <Globe className="h-5 w-5 mr-2 text-purple-500" />
-          Source Pooling
-        </h3>
-        <div className="text-sm text-gray-400">
-          {sourceData.total_entities_found} domains
-        </div>
-      </div>
-      <div className="space-y-3">
-        {topSources.map((source, index) => (
-          <div key={source.domain} className="p-3 bg-gray-900/40 rounded-lg border border-gray-700/30">
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1">
-                <div className="text-sm font-medium text-white truncate" title={source.domain}>
-                  {source.domain}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {source.reportCount} reports
-                </div>
-              </div>
-              <div className={`text-sm font-bold ${getTrustScoreColor(source.domainTrustScore)}`}>
-                {source.domainTrustScore}
-              </div>
+      {/* Data State */}
+      {sourceData && !loading && (
+        <>
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gray-900/40 rounded-lg p-3 border border-gray-700/30">
+              <div className="text-xs text-gray-400 mb-1">Total Domains</div>
+              <div className="text-lg font-bold text-white">{sourceData.total_entities_found}</div>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full ${
-                  source.domainTrustScore >= 70 ? 'bg-emerald-500' :
-                  source.domainTrustScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${source.domainTrustScore}%` }}
-              />
+            <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20">
+              <div className="text-xs text-red-400 mb-1">High Risk</div>
+              <div className="text-lg font-bold text-red-300">{sourceData.summary.high_risk_sources}</div>
+            </div>
+            <div className="bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/20">
+              <div className="text-xs text-yellow-400 mb-1">Medium Risk</div>
+              <div className="text-lg font-bold text-yellow-300">{sourceData.summary.medium_risk_sources}</div>
+            </div>
+            <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20">
+              <div className="text-xs text-emerald-400 mb-1">Low Risk</div>
+              <div className="text-lg font-bold text-emerald-300">{sourceData.summary.low_risk_sources}</div>
             </div>
           </div>
-        ))}
-      </div>
-      <div className="mt-4 pt-3 border-t border-gray-700/50 text-xs text-gray-400">
-        <div className="grid grid-cols-3 gap-2">
-          <div>High Risk: {sourceData.summary.high_risk_sources}</div>
-          <div>Medium: {sourceData.summary.medium_risk_sources}</div>
-          <div>Low: {sourceData.summary.low_risk_sources}</div>
+
+          {/* Top Sources */}
+          {sourceData.sources && sourceData.sources.length > 0 ? (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-gray-300 mb-3">High-Risk Domains</h4>
+              {sourceData.sources.slice(0, 6).map((source, index) => (
+                <motion.div 
+                  key={source.domain || index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="p-4 bg-gray-900/40 rounded-lg border border-gray-700/30 hover:border-gray-600/50 transition-all duration-300"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <Activity className="h-4 w-4 text-purple-400" />
+                        <span className="text-sm font-medium text-white truncate" title={source.domain}>
+                          {source.domain || 'Unknown Domain'}
+                        </span>
+                        <ExternalLink className="h-3 w-3 text-gray-500" />
+                      </div>
+                      <div className="flex items-center space-x-4 text-xs text-gray-400">
+                        <span className="flex items-center">
+                          <Zap className="h-3 w-3 mr-1" />
+                          {source.reportCount || 0} reports
+                        </span>
+                        <span>
+                          Last seen: {source.lastReportedAt ? formatTimeAgo(source.lastReportedAt) : 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end space-y-2">
+                      <span className={`text-sm font-bold ${getTrustScoreColor(source.domainTrustScore || 0)}`}>
+                        {source.domainTrustScore || 0}
+                      </span>
+                      <span className={`text-xs px-2 py-1 rounded-full border font-medium ${getRiskBadgeColor(source.domainTrustScore || 0)}`}>
+                        {(source.domainTrustScore || 0) >= 70 ? 'Low Risk' : 
+                         (source.domainTrustScore || 0) >= 40 ? 'Medium' : 'High Risk'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Trust Score Bar */}
+                  <div className="w-full bg-gray-700 rounded-full h-2 mb-3">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-500 ${getTrustScoreBg(source.domainTrustScore || 0)}`}
+                      style={{ width: `${source.domainTrustScore || 0}%` }}
+                    />
+                  </div>
+
+                  {/* Severity Breakdown */}
+                  {source.severityBreakdown && (
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div className="text-red-400">
+                        Critical: {source.severityBreakdown.CRITICAL || 0}
+                      </div>
+                      <div className="text-orange-400">
+                        High: {source.severityBreakdown.HIGH || 0}
+                      </div>
+                      <div className="text-yellow-400">
+                        Medium: {source.severityBreakdown.MEDIUM || 0}
+                      </div>
+                      <div className="text-gray-400">
+                        Low: {source.severityBreakdown.LOW || 0}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {source.tags && source.tags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {source.tags.slice(0, 3).map((tag, tagIndex) => (
+                        <span 
+                          key={tagIndex} 
+                          className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded border border-purple-500/30"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {source.tags.length > 3 && (
+                        <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-1 rounded">
+                          +{source.tags.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Globe className="h-12 w-12 text-gray-500 mx-auto mb-3" />
+              <p className="text-gray-400">No domain data available</p>
+            </div>
+          )}
+
+          {/* Most Dangerous Entity Alert */}
+          {sourceData.summary.most_dangerous_entity && (
+            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <span className="text-sm text-red-300 font-medium">
+                  Highest Risk Domain: {sourceData.summary.most_dangerous_entity}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="mt-6 pt-4 border-t border-gray-700/50 text-xs text-gray-500">
+            <div className="flex justify-between items-center">
+              <span>Last analyzed: {new Date(sourceData.analysis_timestamp).toLocaleString()}</span>
+              <span>{sourceData.total_reports_analyzed} reports analyzed</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Empty State */}
+      {!sourceData && !loading && !error && (
+        <div className="text-center py-8">
+          <Globe className="h-12 w-12 text-gray-500 mx-auto mb-3" />
+          <p className="text-gray-400 mb-2">No source data available</p>
+          <button 
+            onClick={onRefresh}
+            className="text-sm text-purple-400 hover:text-purple-300"
+          >
+            Load data
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -262,7 +440,9 @@ export default function GeneralLedger() {
   const [reports, setReports] = useState<Report[]>([]);
   const [sourceProfile, setSourceProfile] = useState<SourceProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sourceLoading, setSourceLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sourceError, setSourceError] = useState<string | null>(null);
   const router = useRouter();
   
   // Filter states
@@ -270,26 +450,37 @@ export default function GeneralLedger() {
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [severityFilter, setSeverityFilter] = useState('All Severities');
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [reportsData, sourceData] = await Promise.all([
-          fetchReports(),
-          fetchSourceProfile()
-        ]);
-        
-        setReports(reportsData);
-        setSourceProfile(sourceData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-        console.error('Error loading data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadReports = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const reportsData = await fetchReports();
+      setReports(reportsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load reports');
+      console.error('Error loading reports:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadData();
+  const loadSourceProfile = async () => {
+    try {
+      setSourceLoading(true);
+      setSourceError(null);
+      const sourceData = await fetchSourceProfile();
+      setSourceProfile(sourceData);
+    } catch (err) {
+      setSourceError(err instanceof Error ? err.message : 'Failed to load source profile');
+      console.error('Error loading source profile:', err);
+    } finally {
+      setSourceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReports();
+    loadSourceProfile();
   }, []);
 
   // Filter reports based on search and filter criteria
@@ -308,7 +499,6 @@ export default function GeneralLedger() {
   }, [reports, searchTerm, categoryFilter, severityFilter]);
 
   const handleReportSelect = (report: Report) => {
-    // Navigate to forensic dashboard with report ID
     router.push(`/forensics?reportId=${report.id}`);
   };
 
@@ -327,7 +517,11 @@ export default function GeneralLedger() {
     }
   };
 
-  if (error) {
+  // Get unique categories and severities for filters
+  const categories = ['All Categories', ...Array.from(new Set(reports.map(r => r.category)))];
+  const severities = ['All Severities', ...Array.from(new Set(reports.map(r => r.severity)))];
+
+  if (error && reports.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center p-8 bg-gray-800/50 rounded-2xl border border-red-500/20">
@@ -335,7 +529,7 @@ export default function GeneralLedger() {
           <h2 className="text-2xl font-bold mb-2">Failed to Load Data</h2>
           <p className="text-gray-400 mb-4">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={loadReports}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
           >
             Try Again
@@ -434,10 +628,9 @@ export default function GeneralLedger() {
                     onChange={(e) => setCategoryFilter(e.target.value)}
                     className="bg-gray-700/50 border border-gray-600/50 rounded-xl px-6 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 transition-all duration-300 min-w-[150px]"
                   >
-                    <option value="All Categories">All Categories</option>
-                    <option value="MISINFORMATION">Misinformation</option>
-                    <option value="FAKE_NEWS">Fake News</option>
-                    <option value="MISLEADING">Misleading</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -448,10 +641,9 @@ export default function GeneralLedger() {
                     onChange={(e) => setSeverityFilter(e.target.value)}
                     className="bg-gray-700/50 border border-gray-600/50 rounded-xl px-6 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 transition-all duration-300 min-w-[150px]"
                   >
-                    <option value="All Severities">All Severities</option>
-                    <option value="CRITICAL">Critical</option>
-                    <option value="HIGH">High</option>
-                    <option value="MEDIUM">Medium</option>
+                    {severities.map(severity => (
+                      <option key={severity} value={severity}>{severity}</option>
+                    ))}
                   </select>
                 </div>
                 <motion.button 
@@ -475,7 +667,12 @@ export default function GeneralLedger() {
           {/* Source Pooling Card */}
           <AnimatedSection delay={0.25}>
             <div className="mb-8">
-              <SourcePoolingCard sourceData={sourceProfile} />
+              <SourcePoolingCard 
+                sourceData={sourceProfile}
+                loading={sourceLoading}
+                error={sourceError}
+                onRefresh={loadSourceProfile}
+              />
             </div>
           </AnimatedSection>
 
@@ -493,14 +690,16 @@ export default function GeneralLedger() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 + index * 0.1 }}
-                  className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl"
+                  className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-400">{stat.label}</p>
-                      <p className="text-2xl font-bold text-white">{stat.value}</p>
+                      <p className="text-3xl font-bold text-white">{stat.value}</p>
                     </div>
-                    <stat.icon className={`h-8 w-8 text-${stat.color}`} />
+                    <div className={`p-3 rounded-xl bg-${stat.color}/20`}>
+                      <stat.icon className={`h-8 w-8 text-${stat.color}`} />
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -519,66 +718,190 @@ export default function GeneralLedger() {
           ) : (
             <AnimatedSection delay={0.4}>
               <div className="space-y-4">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-white">Recent Reports</h2>
+                  <motion.button 
+                    onClick={loadReports}
+                    className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium transition-all duration-300"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Refresh</span>
+                  </motion.button>
+                </div>
+
                 {filteredReports.length === 0 ? (
                   <div className="text-center py-12 bg-gray-800/40 rounded-2xl border border-gray-700/50">
                     <Search className="h-12 w-12 text-gray-500 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">No reports found</h3>
-                    <p className="text-gray-400">Try adjusting your search or filters</p>
+                    <p className="text-gray-400 mb-4">
+                      {reports.length === 0 
+                        ? "No reports available at the moment" 
+                        : "Try adjusting your search or filters"
+                      }
+                    </p>
+                    {reports.length === 0 && (
+                      <button 
+                        onClick={loadReports}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                      >
+                        Load Reports
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  filteredReports.map((report, index) => (
-                    <motion.div
-                      key={report.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                      className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:border-purple-500/30"
-                      onClick={() => handleReportSelect(report)}
-                      whileHover={{ y: -2 }}
-                    >
-                      <div className="flex flex-col md:flex-row md:items-start gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-3">
-                            <h3 className="text-lg font-semibold text-white">{report.title}</h3>
-                            <span className={`text-xs px-3 py-1 rounded-full border font-medium ${getSeverityColor(report.severity)}`}>
-                              {report.severity}
-                            </span>
+                  <>
+                    {/* Quick Stats for Filtered Results */}
+                    {(searchTerm || categoryFilter !== 'All Categories' || severityFilter !== 'All Severities') && (
+                      <div className="bg-gray-800/30 rounded-xl p-4 mb-4 border border-gray-700/30">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                          <div>
+                            <div className="text-2xl font-bold text-white">{filteredReports.length}</div>
+                            <div className="text-xs text-gray-400">Filtered Results</div>
                           </div>
-                          <p className="text-gray-300 text-sm mb-4">{report.flaggedContent}</p>
-                          <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-                            <span className="flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {new Date(report.timestamp).toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center">
-                              <User className="h-3 w-3 mr-1" />
-                              {report.userEmail || 'Anonymous'}
-                            </span>
-                            <span className="flex items-center">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                              {report.reportCount} reports
-                            </span>
+                          <div>
+                            <div className="text-2xl font-bold text-red-400">
+                              {filteredReports.filter(r => r.severity === 'CRITICAL').length}
+                            </div>
+                            <div className="text-xs text-gray-400">Critical</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-orange-400">
+                              {filteredReports.filter(r => r.severity === 'HIGH').length}
+                            </div>
+                            <div className="text-xs text-gray-400">High</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-yellow-400">
+                              {filteredReports.filter(r => r.severity === 'MEDIUM').length}
+                            </div>
+                            <div className="text-xs text-gray-400">Medium</div>
                           </div>
                         </div>
-                        <motion.button 
-                          className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm font-medium px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 transition-all duration-300"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReportSelect(report);
-                          }}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <span>Analyze</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </motion.button>
                       </div>
-                    </motion.div>
-                  ))
+                    )}
+
+                    {/* Reports List */}
+                    {filteredReports.map((report, index) => (
+                      <motion.div
+                        key={report.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: Math.min(index * 0.05, 1) }}
+                        className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:border-purple-500/30 hover:bg-gray-800/60"
+                        onClick={() => handleReportSelect(report)}
+                        whileHover={{ y: -2 }}
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-3">
+                              <h3 className="text-lg font-semibold text-white leading-tight pr-4">
+                                {report.title}
+                              </h3>
+                              <span className={`text-xs px-3 py-1 rounded-full border font-medium whitespace-nowrap ${getSeverityColor(report.severity)}`}>
+                                {report.severity}
+                              </span>
+                            </div>
+                            
+                            <p className="text-gray-300 text-sm mb-4 line-clamp-2">
+                              {report.flaggedContent}
+                            </p>
+
+                            <div className="mb-3 text-xs text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg inline-block">
+                              <span className="font-mono">{report.url}</span>
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+                              <span className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {new Date(report.timestamp).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                              <span className="flex items-center">
+                                <User className="h-3 w-3 mr-1" />
+                                {report.userEmail || 'Anonymous'}
+                              </span>
+                              <span className="flex items-center">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                {report.reportCount} report{report.reportCount !== 1 ? 's' : ''}
+                              </span>
+                              <span className="flex items-center">
+                                <Filter className="h-3 w-3 mr-1" />
+                                {report.category}
+                              </span>
+                              {report.status && (
+                                <span className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  report.status === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-300' :
+                                  report.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-300' :
+                                  'bg-gray-500/20 text-gray-300'
+                                }`}>
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  {report.status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <motion.div 
+                            className="flex lg:flex-col gap-2 lg:items-end"
+                            whileHover={{ scale: 1.02 }}
+                          >
+                            <motion.button 
+                              className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm font-medium px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 transition-all duration-300 whitespace-nowrap"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReportSelect(report);
+                              }}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <span>Analyze</span>
+                              <ChevronRight className="h-4 w-4" />
+                            </motion.button>
+                            
+                            {report.reviewedAt && (
+                              <div className="text-xs text-gray-500">
+                                <div>Reviewed</div>
+                                <div>{new Date(report.reviewedAt).toLocaleDateString()}</div>
+                              </div>
+                            )}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                    ))}
+
+                    {/* Load More Button (if there are many reports) */}
+                    {filteredReports.length > 50 && (
+                      <div className="text-center pt-6">
+                        <div className="text-sm text-gray-400 mb-4">
+                          Showing first 50 results. Use filters to narrow down your search.
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </AnimatedSection>
           )}
+
+          {/* Footer Information */}
+          <AnimatedSection delay={0.6}>
+            <div className="mt-12 pt-8 border-t border-gray-700/50">
+              <div className="text-center text-sm text-gray-500">
+                <div className="flex justify-center items-center space-x-6">
+                  <div>Total Reports: {reports.length}</div>
+                  <div>•</div>
+                  <div>Last Updated: {new Date().toLocaleDateString()}</div>
+                  <div>•</div>
+                  <div>API Status: {error ? '🔴 Error' : '🟢 Online'}</div>
+                </div>
+              </div>
+            </div>
+          </AnimatedSection>
         </div>
       </section>
     </div>
