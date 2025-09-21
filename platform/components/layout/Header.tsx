@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Menu, X, Github, Download } from 'lucide-react';
 
@@ -46,7 +46,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
+          <a href="/" className="flex items-center space-x-2 group">
             <motion.div
               whileHover={{ scale: 1.05 }}
               className="flex items-center space-x-2"
@@ -57,12 +57,12 @@ export function Header() {
               </div>
               <span className="text-xl font-bold gradient-text">VeriHub</span>
             </motion.div>
-          </Link>
+          </a>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             {navigation.map((item) => (
-              <Link
+              <a
                 key={item.name}
                 href={item.href}
                 className={cn(
@@ -80,7 +80,7 @@ export function Header() {
                     transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
                   />
                 )}
-              </Link>
+              </a>
             ))}
           </nav>
 
@@ -95,13 +95,13 @@ export function Header() {
               <Github className="h-5 w-5" />
               <span className="text-sm">Star</span>
             </a>
-            <Link
+            <a
               href="/download"
               className="btn-primary flex items-center space-x-2 py-2 px-4 no-underline"
             >
               <Download className="h-4 w-4" />
               <span>Get Extension</span>
-            </Link>
+            </a>
           </div>
 
           {/* Mobile menu button */}
@@ -127,7 +127,7 @@ export function Header() {
           >
             <div className="px-4 py-4 space-y-4">
               {navigation.map((item) => (
-                <Link
+                <a
                   key={item.name}
                   href={item.href}
                   onClick={toggleMenu}
@@ -139,7 +139,7 @@ export function Header() {
                   )}
                 >
                   {item.name}
-                </Link>
+                </a>
               ))}
               <div className="flex flex-col space-y-3 pt-4 border-t border-veri-purple/20">
                 <a
@@ -152,14 +152,14 @@ export function Header() {
                   <Github className="h-5 w-5" />
                   <span>Star on GitHub</span>
                 </a>
-                <Link
+                <a
                   href="/download"
                   className="btn-primary flex items-center space-x-2 justify-center py-3 no-underline"
                   onClick={toggleMenu}
                 >
                   <Download className="h-4 w-4" />
                   <span>Get Extension Free</span>
-                </Link>
+                </a>
               </div>
             </div>
           </motion.div>

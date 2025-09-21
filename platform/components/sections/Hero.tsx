@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Shield, Zap, Eye, Download } from 'lucide-react';
-import Link from 'next/link';
+
 import { AnimatedSection } from '@/components/ui/AnimatedSection';
 import { BrowserMockup } from '@/components/ui/BrowserMockup';
 
@@ -73,7 +73,7 @@ export function Hero() {
 
             <AnimatedSection delay={0.3}>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Link href="/download" className="inline-block">
+                <a href="/download" className="inline-block">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -82,9 +82,9 @@ export function Hero() {
                     <Download className="h-5 w-5" />
                     <span>Download Extension Free</span>
                   </motion.div>
-                </Link>
+                </a>
 
-                <Link href="/ledger" className="inline-block">
+                <a href="/ledger" className="inline-block">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -93,7 +93,7 @@ export function Hero() {
                     <Shield className="h-5 w-5" />
                     <span>Explore Forensics</span>
                   </motion.div>
-                </Link>
+                </a>
               </div>
             </AnimatedSection>
 
