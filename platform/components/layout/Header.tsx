@@ -20,9 +20,9 @@ export function Header() {
     { name: 'Home', href: '/' },
     { name: 'Forensics', href: '/forensics' },
     { name: 'Demo', href: '/demo' },
-    { name: 'How It Works', href: '/how-it-works' },
+    // { name: 'How It Works', href: '/how-it-works' },
     { name: 'Download', href: '/download' },
-    { name: 'About', href: '/about' },
+    // { name: 'About', href: '/about' },
   ];
 
   useEffect(() => {

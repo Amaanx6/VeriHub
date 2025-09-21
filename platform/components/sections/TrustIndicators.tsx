@@ -23,12 +23,12 @@ const indicators = [
     description: 'Built by developers, for users',
     value: 'Open',
   },
-  {
-    icon: Award,
-    title: 'Hackathon Winner',
-    description: 'Innovative solution recognized',
-    value: '2024',
-  },
+  // {
+  //   icon: Award,
+  //   title: 'Hackathon Winner',
+  //   description: 'Innovative solution recognized',
+  //   value: '2024',
+  // },
 ];
 
 export function TrustIndicators() {
@@ -73,45 +73,48 @@ export function TrustIndicators() {
           </motion.p>
         </AnimatedSection>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {indicators.map((indicator, index) => (
-            <AnimatedSection key={indicator.title} delay={index * 0.1}>
-              <motion.div
-                className="text-center group p-6 rounded-xl bg-dark-surface-2/80 backdrop-blur-sm border border-veri-purple/20 hover:border-veri-purple/40 transition-all duration-300"
-                whileHover={{ 
-                  y: -4,
-                  scale: 1.02,
-                  boxShadow: "0 10px 30px -10px rgba(139, 92, 246, 0.3)"
-                }}
-                transition={{ duration: 0.2 }}
-              >
+        {/* Centered grid for 3 cards */}
+        <div className="flex justify-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl">
+            {indicators.map((indicator, index) => (
+              <AnimatedSection key={indicator.title} delay={index * 0.1}>
                 <motion.div
-                  className="bg-veri-purple/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-veri-purple/20 transition-colors"
-                  whileHover={{ rotate: 5, scale: 1.1 }}
+                  className="text-center group p-6 rounded-xl bg-dark-surface-2/80 backdrop-blur-sm border border-veri-purple/20 hover:border-veri-purple/40 transition-all duration-300"
+                  whileHover={{ 
+                    y: -4,
+                    scale: 1.02,
+                    boxShadow: "0 10px 30px -10px rgba(139, 92, 246, 0.3)"
+                  }}
                   transition={{ duration: 0.2 }}
                 >
-                  <indicator.icon className="h-8 w-8 text-veri-purple" />
+                  <motion.div
+                    className="bg-veri-purple/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-veri-purple/20 transition-colors"
+                    whileHover={{ rotate: 5, scale: 1.1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <indicator.icon className="h-8 w-8 text-veri-purple" />
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="text-3xl font-bold text-white mb-3 gradient-text"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 + 0.2 }}
+                  >
+                    {indicator.value}
+                  </motion.div>
+                  
+                  <h3 className="text-xl font-semibold text-white mb-3">
+                    {indicator.title}
+                  </h3>
+                  
+                  <p className="text-veri-gray-light leading-relaxed">
+                    {indicator.description}
+                  </p>
                 </motion.div>
-                
-                <motion.div 
-                  className="text-3xl font-bold text-white mb-3 gradient-text"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 + 0.2 }}
-                >
-                  {indicator.value}
-                </motion.div>
-                
-                <h3 className="text-xl font-semibold text-white mb-3">
-                  {indicator.title}
-                </h3>
-                
-                <p className="text-veri-gray-light leading-relaxed">
-                  {indicator.description}
-                </p>
-              </motion.div>
-            </AnimatedSection>
-          ))}
+              </AnimatedSection>
+            ))}
+          </div>
         </div>
       </div>
     </section>
