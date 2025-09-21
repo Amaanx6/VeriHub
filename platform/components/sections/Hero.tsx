@@ -30,7 +30,7 @@ export function Hero() {
       <div className="absolute inset-0 bg-veri-gradient-subtle" />
 
       {/* Animated background particles */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
         {[...Array(20)].map((_, i) => (
           <motion.div
             key={i}
@@ -38,6 +38,7 @@ export function Hero() {
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
+              pointerEvents: 'none',
             }}
             animate={{
               y: [0, -30, 0],
