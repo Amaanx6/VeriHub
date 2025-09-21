@@ -2,55 +2,11 @@
 
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Shield, Zap, Eye, Download } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+
 import { AnimatedSection } from '@/components/ui/AnimatedSection';
 import { BrowserMockup } from '@/components/ui/BrowserMockup';
 
 export function Hero() {
-  const router = useRouter();
-
-  const handleDownloadClick = (e:any) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Download button clicked!');
-    
-    // Multiple fallback methods
-    try {
-      // Method 1: Next.js router
-      router.push('/download');
-    } catch (error) {
-      console.log('Router failed, trying window.location');
-      // Method 2: Full page redirect
-      window.location.href = window.location.origin + '/download';
-    }
-  };
-
-  const handleForensicsClick = (e:any) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Forensics button clicked!');
-    
-    try {
-      // Method 1: Next.js router
-      router.push('/forensics');
-    } catch (error) {
-      console.log('Router failed, trying window.location');
-      // Method 2: Full page redirect
-      window.location.href = window.location.origin + '/forensics';
-    }
-  };
-
-  // Alternative: Direct window.location method
-  const forceDownloadRedirect = () => {
-    console.log('Force download redirect!');
-    window.location.href = window.location.origin + '/download';
-  };
-
-  const forceForensicsRedirect = () => {
-    console.log('Force forensics redirect!');
-    window.location.href = window.location.origin + '/forensics';
-  };
-
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Effects */}
@@ -117,25 +73,27 @@ export function Hero() {
 
             <AnimatedSection delay={0.3}>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleDownloadClick}
-                  className="btn-primary flex items-center justify-center space-x-2 text-lg px-8 py-4 cursor-pointer"
-                >
-                  <Download className="h-5 w-5" />
-                  <span>Download Extension Free</span>
-                </motion.button>
+                <a href="/download" className="inline-block">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="btn-primary flex items-center justify-center space-x-2 text-lg px-8 py-4 cursor-pointer"
+                  >
+                    <Download className="h-5 w-5" />
+                    <span>Download Extension Free</span>
+                  </motion.div>
+                </a>
 
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleForensicsClick}
-                  className="btn-secondary flex items-center justify-center space-x-2 text-lg px-8 py-4 cursor-pointer"
-                >
-                  <Shield className="h-5 w-5" />
-                  <span>Explore Forensics</span>
-                </motion.button>
+                <a href="/ledger" className="inline-block">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="btn-secondary flex items-center justify-center space-x-2 text-lg px-8 py-4 cursor-pointer"
+                  >
+                    <Shield className="h-5 w-5" />
+                    <span>Explore Forensics</span>
+                  </motion.div>
+                </a>
               </div>
             </AnimatedSection>
 
