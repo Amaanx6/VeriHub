@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Menu, X, Github, Download } from 'lucide-react';
@@ -19,10 +18,8 @@ export function Header() {
   const navigation = [
     { name: 'Home', href: '/' },
     { name: 'Ledger', href: '/ledger' },
-    // { name: 'Forensics', href: '/forensics' },
     { name: 'Demo', href: '/demo' },
     { name: 'Download', href: '/download' },
-    // { name: 'About', href: '/about' },
   ];
 
   useEffect(() => {
@@ -48,7 +45,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
+          <a href="/" className="flex items-center space-x-2 group">
             <motion.div
               whileHover={{ scale: 1.05 }}
               className="flex items-center space-x-2"
@@ -59,16 +56,16 @@ export function Header() {
               </div>
               <span className="text-xl font-bold gradient-text">VeriHub</span>
             </motion.div>
-          </Link>
+          </a>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             {navigation.map((item) => (
-              <Link
+              <a
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'relative text-sm font-medium transition-colors hover:text-veri-purple py-2 px-1',
+                  'relative text-sm font-medium transition-colors hover:text-veri-purple py-2 px-1 no-underline',
                   pathname === item.href
                     ? 'text-veri-purple'
                     : 'text-veri-gray-light hover:text-white'
@@ -82,7 +79,7 @@ export function Header() {
                     transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
                   />
                 )}
-              </Link>
+              </a>
             ))}
           </nav>
 
@@ -92,20 +89,18 @@ export function Header() {
               href="https://github.com/mohfazam2/VeriHub"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors py-2 px-3"
+              className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors py-2 px-3 no-underline"
             >
               <Github className="h-5 w-5" />
               <span className="text-sm">Star</span>
             </a>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Link
-                href="/download"
-                className="btn-primary flex items-center space-x-2 py-2 px-4"
-              >
-                <Download className="h-4 w-4" />
-                <span>Get Extension</span>
-              </Link>
-            </motion.div>
+            <a
+              href="/download"
+              className="btn-primary flex items-center space-x-2 py-2 px-4 no-underline"
+            >
+              <Download className="h-4 w-4" />
+              <span>Get Extension</span>
+            </a>
           </div>
 
           {/* Mobile menu button */}
@@ -131,39 +126,39 @@ export function Header() {
           >
             <div className="px-4 py-4 space-y-4">
               {navigation.map((item) => (
-                <Link
+                <a
                   key={item.name}
                   href={item.href}
                   onClick={toggleMenu}
                   className={cn(
-                    'block text-base font-medium transition-colors py-2 px-2 rounded-md',
+                    'block text-base font-medium transition-colors py-2 px-2 rounded-md no-underline',
                     pathname === item.href
                       ? 'text-veri-purple bg-veri-purple/10'
                       : 'text-veri-gray-light hover:text-white hover:bg-white/5'
                   )}
                 >
                   {item.name}
-                </Link>
+                </a>
               ))}
               <div className="flex flex-col space-y-3 pt-4 border-t border-veri-purple/20">
                 <a
-                  href="https://github.com/verihub/extension"
+                  href="https://github.com/mohfazam2/VeriHub"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors py-2 px-2 rounded-md hover:bg-white/5"
+                  className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors py-2 px-2 rounded-md hover:bg-white/5 no-underline"
                   onClick={toggleMenu}
                 >
                   <Github className="h-5 w-5" />
                   <span>Star on GitHub</span>
                 </a>
-                <Link
+                <a
                   href="/download"
-                  className="btn-primary flex items-center space-x-2 justify-center py-3"
+                  className="btn-primary flex items-center space-x-2 justify-center py-3 no-underline"
                   onClick={toggleMenu}
                 >
                   <Download className="h-4 w-4" />
                   <span>Get Extension Free</span>
-                </Link>
+                </a>
               </div>
             </div>
           </motion.div>
