@@ -606,13 +606,9 @@ export default function ForensicsDemo() {
         )}
 
       {/* Forensic Analysis Section */}
-      <section 
-        className={`relative z-10 min-h-screen pt-16 pb-12 transition-all duration-700 ${
-          activeSection === 'forensics' 
-            ? 'opacity-100 translate-x-0' 
-            : 'opacity-0 -translate-x-full absolute inset-0 pointer-events-none'
-        }`}
-      >
+      {activeSection === 'forensics' && (
+        <section className="relative z-10 min-h-screen pt-16 pb-12">
+        
         {selectedReport && forensicData ? (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <AnimatedSection>
@@ -870,6 +866,7 @@ export default function ForensicsDemo() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }
