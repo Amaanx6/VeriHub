@@ -9,11 +9,17 @@ import { BrowserMockup } from '@/components/ui/BrowserMockup';
 export function Hero() {
   const router = useRouter();
 
-  const handleDownloadClick = () => {
+  const handleDownloadClick = (e:any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Download button clicked!');
     router.push('/download');
   };
 
-  const handleForensicsClick = () => {
+  const handleForensicsClick = (e:any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Forensics button clicked!');
     router.push('/forensics');
   };
 
