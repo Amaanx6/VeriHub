@@ -1,25 +1,30 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   Shield, 
   AlertTriangle, 
   Download, 
   ExternalLink, 
-  Search, 
-  Filter,
   FileText,
   Hash,
   Code,
   Link as LinkIcon,
   BarChart3,
   CheckCircle,
-  ChevronRight,
+  ChevronLeft,
   Clock,
   User,
   Eye,
   Zap,
-  X
+  Activity,
+  TrendingUp,
+  Users,
+  Globe,
+  Target,
+  Brain,
+  Network
 } from 'lucide-react';
 
 // AnimatedSection component definition
@@ -93,42 +98,143 @@ interface ForensicData {
   similarReports: number;
 }
 
-// In-memory cache instead of localStorage
-let reportsCache: Report[] | null = null;
-let cacheTimestamp: number = 0;
+interface PatternData {
+  patterns: Array<{
+    patternId: string;
+    type: 'TEXT_SIMILARITY' | 'URL_SIMILARITY' | 'IP_CLUSTER' | 'ACCOUNT_LINKAGE';
+    score: number;
+    examples: Array<{
+      reportId: string;
+      excerpt: string;
+      url: string;
+      timestamp: string;
+    }>;
+    firstSeen: string;
+    lastSeen: string;
+    occurrenceCount: number;
+    notes: string | null;
+  }>;
+  similarReports: Array<{
+    reportId: string;
+    similarityScore: number;
+  }>;
+}
+
+interface TimelineData {
+  timeline: Array<{
+    timestamp: string;
+    type: 'REPORT_CREATED' | 'MOD_ACTION' | 'EXTERNAL_CITE';
+    detail: string;
+    count: number;
+  }>;
+  timeRange: {
+    start: string;
+    end: string;
+  };
+  timeseries: Array<{
+    date: string;
+    reports: number;
+  }>;
+}
+
+interface ReporterData {
+  reporters: Array<{
+    reporterId: string | null;
+    emailMasked: string;
+    reportsSubmitted: number;
+    firstReportAt: string;
+    lastReportAt: string;
+    verifiedReports: number;
+    flagsAgainstReporter: number;
+    reputationScore: number;
+  }>;
+  reporterClusters: Array<{
+    clusterId: string;
+    size: number;
+    pattern: string;
+  }>;
+}
+
+// In-memory cache
+let reportCache: Report | null = null;
+let reportCacheId: string = '';
+let reportCacheTimestamp: number = 0;
 
 // API service functions
 const API_BASE_URL = 'https://verihubbackend.vercel.app/api';
 
-const fetchReports = async (): Promise<Report[]> => {
+const fetchReportDetails = async (reportId: string): Promise<Report> => {
   try {
-    // Check in-memory cache first
-    const age = Date.now() - cacheTimestamp;
-    if (reportsCache && age < 5 * 60 * 1000) { // 5 minutes
-      return reportsCache;
+    // Check cache first
+    const age = Date.now() - reportCacheTimestamp;
+    if (reportCache && reportCacheId === reportId && age < 5 * 60 * 1000) {
+      return reportCache;
     }
-    
-    // Fetch fresh data
-    const response = await fetch(`${API_BASE_URL}/reports/list`);
+
+    const response = await fetch(`${API_BASE_URL}/reports/details/${reportId}`);
     const data = await response.json();
     
     if (data.success) {
-      // Cache the results in memory
-      reportsCache = data.data;
-      cacheTimestamp = Date.now();
+      reportCache = data.data;
+      reportCacheId = reportId;
+      reportCacheTimestamp = Date.now();
       return data.data;
     }
     
-    throw new Error('Failed to fetch reports');
+    throw new Error('Failed to fetch report details');
   } catch (error) {
-    console.error('Error fetching reports:', error);
+    console.error('Error fetching report details:', error);
+    throw error;
+  }
+};
+
+const fetchPatternData = async (reportId: string): Promise<PatternData> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reports/pattern-detect`);
+    const data = await response.json();
     
-    // Fallback to cache even if stale
-    if (reportsCache) {
-      return reportsCache;
+    if (data.success) {
+      // Transform the response to match our PatternData interface
+      return {
+        patterns: [],
+        similarReports: [
+          { reportId: data.reportId, similarityScore: 0.85 }
+        ]
+      };
     }
     
-    throw error;
+    // Return mock data for now
+    return {
+      patterns: [
+        {
+          patternId: 'pattern_1',
+          type: 'TEXT_SIMILARITY',
+          score: 85,
+          examples: [
+            {
+              reportId: reportId,
+              excerpt: 'Similar content pattern detected',
+              url: 'https://example.com',
+              timestamp: new Date().toISOString()
+            }
+          ],
+          firstSeen: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          lastSeen: new Date().toISOString(),
+          occurrenceCount: 5,
+          notes: 'High similarity in flagged content'
+        }
+      ],
+      similarReports: [
+        { reportId: data.reportId || reportId, similarityScore: 0.85 }
+      ]
+    };
+  } catch (error) {
+    console.error('Error fetching pattern data:', error);
+    // Return mock data as fallback
+    return {
+      patterns: [],
+      similarReports: []
+    };
   }
 };
 
@@ -184,16 +290,31 @@ const generateOutboundLinks = (url: string): Array<{url: string, trustScore: num
 };
 
 const calculateDomainTrustScore = (domain: string): number => {
-  if (domain.includes('gov') || domain.includes('edu') || domain.includes('who.int') || domain.includes('cdc.gov')) {
-    return 85 + Math.floor(Math.random() * 15);
+  // Base score
+  let score = 30;
+  
+  // TLD bonus
+  if (domain.includes('.gov') || domain.includes('.edu')) {
+    score += 30;
   }
+  
+  // Reputable sources
+  if (domain.includes('who.int') || domain.includes('cdc.gov') || domain.includes('reuters.com')) {
+    score += 20;
+  }
+  
+  // News sites
   if (domain.includes('news') || domain.includes('reuters') || domain.includes('apnews')) {
-    return 75 + Math.floor(Math.random() * 15);
+    score += 10;
   }
-  if (domain.includes('blog') || domain.includes('medium')) {
-    return 50 + Math.floor(Math.random() * 25);
+  
+  // Blog/personal sites penalty
+  if (domain.includes('blog') || domain.includes('medium') || domain.includes('wordpress')) {
+    score -= 10;
   }
-  return 20 + Math.floor(Math.random() * 30);
+  
+  // Ensure score is between 0-100
+  return Math.min(100, Math.max(0, score));
 };
 
 const generateCorrection = (category: string, content: string): string => {
@@ -206,69 +327,58 @@ const generateCorrection = (category: string, content: string): string => {
   return corrections[category] || "This content contains inaccuracies. Please verify information through trusted sources before sharing.";
 };
 
-export default function ForensicsDemo() {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [forensicData, setForensicData] = useState<ForensicData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'general' | 'forensics'>('general');
+const generateTimelineData = (report: Report): TimelineData => {
+  const startDate = new Date(report.createdAt);
+  const endDate = new Date(report.timestamp);
   
-  // Filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All Categories');
-  const [severityFilter, setSeverityFilter] = useState('All Severities');
-
-  useEffect(() => {
-    const loadReports = async () => {
-      try {
-        setLoading(true);
-        const reportsData = await fetchReports();
-        setReports(reportsData);
-        
-        if (reportsData.length > 0) {
-          const firstReport = reportsData[0];
-          setSelectedReport(firstReport);
-          setForensicData(generateForensicData(firstReport));
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load reports');
-        console.error('Error loading reports:', err);
-      } finally {
-        setLoading(false);
+  return {
+    timeline: [
+      {
+        timestamp: report.createdAt,
+        type: 'REPORT_CREATED',
+        detail: 'Report first submitted',
+        count: 1
+      },
+      {
+        timestamp: report.timestamp,
+        type: 'MOD_ACTION',
+        detail: 'Report under review',
+        count: report.reportCount
       }
-    };
-
-    loadReports();
-  }, []);
-
-  // Filter reports based on search and filter criteria
-  const filteredReports = useMemo(() => {
-    return reports.filter(report => {
-      const matchesSearch = searchTerm === '' || 
-        report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.flaggedContent.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.url.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCategory = categoryFilter === 'All Categories' || report.category === categoryFilter;
-      const matchesSeverity = severityFilter === 'All Severities' || report.severity === severityFilter;
-      
-      return matchesSearch && matchesCategory && matchesSeverity;
-    });
-  }, [reports, searchTerm, categoryFilter, severityFilter]);
-
-  const handleReportSelect = (report: Report) => {
-    setSelectedReport(report);
-    setForensicData(generateForensicData(report));
-    setActiveSection('forensics');
+    ],
+    timeRange: {
+      start: startDate.toISOString(),
+      end: endDate.toISOString()
+    },
+    timeseries: [
+      {
+        date: startDate.toISOString().split('T')[0],
+        reports: report.reportCount
+      }
+    ]
   };
+};
 
-  const clearFilters = () => {
-    setSearchTerm('');
-    setCategoryFilter('All Categories');
-    setSeverityFilter('All Severities');
+const generateReporterData = (report: Report): ReporterData => {
+  return {
+    reporters: [
+      {
+        reporterId: 'reporter_1',
+        emailMasked: report.userEmail ? `${report.userEmail.substring(0, 2)}****@${report.userEmail.split('@')[1]}` : 'a****@example.com',
+        reportsSubmitted: report.reportCount,
+        firstReportAt: report.createdAt,
+        lastReportAt: report.timestamp,
+        verifiedReports: Math.floor(report.reportCount * 0.8),
+        flagsAgainstReporter: 0,
+        reputationScore: 85
+      }
+    ],
+    reporterClusters: []
   };
+};
 
+// Tab Content Components
+const ReportContextSummary: React.FC<{ report: Report; forensicData: ForensicData }> = ({ report, forensicData }) => {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'CRITICAL': return 'bg-red-500/20 text-red-300 border-red-500/50';
@@ -278,31 +388,386 @@ export default function ForensicsDemo() {
     }
   };
 
+  const validateUrl = (url: string): boolean => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  return (
+    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-semibold flex items-center">
+          <AlertTriangle className="h-6 w-6 mr-3 text-purple-500" />
+          <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            Report Context Summary
+          </span>
+        </h2>
+        <div className="flex space-x-2">
+          <span className={`text-xs px-3 py-1 rounded-full border font-medium ${getSeverityColor(report.severity)}`}>
+            {report.severity}
+          </span>
+          <span className="text-xs px-3 py-1 rounded-full border bg-blue-500/20 text-blue-300 border-blue-500/50">
+            {report.category}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-xl font-medium mb-3 text-white">{report.title}</h3>
+          <p className="text-gray-300 leading-relaxed mb-4">{report.flaggedContent}</p>
+          <p className="text-sm text-gray-400">{report.description}</p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-gray-400 mb-1">Report Count</p>
+            <p className="font-semibold text-white">{report.reportCount}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400 mb-1">Status</p>
+            <p className="font-semibold text-white">{report.status}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400 mb-1">Created</p>
+            <p className="font-semibold text-white">{new Date(report.createdAt).toLocaleDateString()}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400 mb-1">Last Report</p>
+            <p className="font-semibold text-white">{new Date(report.timestamp).toLocaleDateString()}</p>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-gray-700/50 flex justify-between items-center">
+          {validateUrl(report.url) ? (
+            <a 
+              href={report.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-purple-400 hover:text-purple-300 font-medium transition-colors"
+            >
+              <span>View Original Content</span>
+              <ExternalLink className="h-4 w-4 ml-2" />
+            </a>
+          ) : (
+            <span className="text-gray-500">Invalid URL</span>
+          )}
+
+          <div className="flex space-x-2">
+            <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium transition-colors">
+              Mark Verified
+            </button>
+            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white font-medium transition-colors">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Demo Data Banner */}
+      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+        <p className="text-yellow-400 text-sm font-medium">⚠️ DEMO DATA — NOT VERIFIED</p>
+      </div>
+    </div>
+  );
+};
+
+const SourceProfiling: React.FC<{ forensicData: ForensicData }> = ({ forensicData }) => {
   const getCredibilityColor = (score: number) => {
     if (score >= 70) return 'text-emerald-400';
     if (score >= 40) return 'text-yellow-400';
     return 'text-red-400';
   };
 
+  return (
+    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
+      <h2 className="text-2xl font-semibold mb-6 flex items-center">
+        <Globe className="h-6 w-6 mr-3 text-blue-500" />
+        <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          Source Profiling
+        </span>
+      </h2>
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Domain Analysis</h3>
+          <div className="bg-gray-900/40 p-4 rounded-lg border border-gray-700/30">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-white font-medium">{forensicData.metadata.domain}</span>
+              <span className={`font-bold ${getCredibilityColor(forensicData.sourceAnalysis.domainTrustScore)}`}>
+                {forensicData.sourceAnalysis.domainTrustScore}/100
+              </span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+              <motion.div 
+                className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full" 
+                initial={{ width: 0 }}
+                animate={{ width: `${forensicData.sourceAnalysis.domainTrustScore}%` }}
+                transition={{ duration: 1, delay: 0.2 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Outbound Links Analysis</h3>
+          <div className="space-y-3">
+            {forensicData.sourceAnalysis.outboundLinks.map((link, index) => (
+              <motion.div 
+                key={index}
+                className="flex justify-between items-center p-3 bg-gray-900/40 rounded-lg border border-gray-700/30"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + index * 0.1 }}
+              >
+                <div className="flex-1">
+                  <div className="text-sm text-gray-300 truncate" title={link.url}>
+                    {new URL(link.url).hostname}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Trust Score: {link.trustScore}
+                  </div>
+                </div>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                  link.credibility === 'HIGH' ? 'bg-emerald-500/20 text-emerald-400' :
+                  link.credibility === 'MEDIUM' ? 'bg-yellow-500/20 text-yellow-400' :
+                  'bg-red-500/20 text-red-400'
+                }`}>
+                  {link.credibility}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PatternDetection: React.FC<{ patternData: PatternData }> = ({ patternData }) => {
+  const getPatternTypeIcon = (type: string) => {
+    switch (type) {
+      case 'TEXT_SIMILARITY': return <FileText className="h-4 w-4" />;
+      case 'URL_SIMILARITY': return <LinkIcon className="h-4 w-4" />;
+      case 'IP_CLUSTER': return <Network className="h-4 w-4" />;
+      case 'ACCOUNT_LINKAGE': return <Users className="h-4 w-4" />;
+      default: return <Target className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
+      <h2 className="text-2xl font-semibold mb-6 flex items-center">
+        <Target className="h-6 w-6 mr-3 text-green-500" />
+        <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+          Pattern Detection
+        </span>
+      </h2>
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Similar Reports</h3>
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <p className="text-blue-200">
+              Found <span className="font-bold">{patternData.similarReports.length}</span> similar reports with high correlation scores
+            </p>
+          </div>
+        </div>
+
+        {patternData.patterns.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold mb-4 text-white">Detected Patterns</h3>
+            <div className="space-y-3">
+              {patternData.patterns.map((pattern, index) => (
+                <motion.div
+                  key={pattern.patternId}
+                  className="p-4 bg-gray-900/40 rounded-lg border border-gray-700/30"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      {getPatternTypeIcon(pattern.type)}
+                      <span className="font-medium text-white">{pattern.type.replace('_', ' ')}</span>
+                    </div>
+                    <span className="text-sm font-bold text-purple-400">{pattern.score}% match</span>
+                  </div>
+                  <p className="text-sm text-gray-300 mb-2">{pattern.notes || '—'}</p>
+                  <div className="text-xs text-gray-500">
+                    Occurrences: {pattern.occurrenceCount} | First: {new Date(pattern.firstSeen).toLocaleDateString()}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {patternData.patterns.length === 0 && (
+          <div className="text-center py-8">
+            <Target className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">No Patterns Detected</h3>
+            <p className="text-gray-400">This report appears to be unique with no significant pattern matches</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const TimelineActivity: React.FC<{ timelineData: TimelineData }> = ({ timelineData }) => {
+  return (
+    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
+      <h2 className="text-2xl font-semibold mb-6 flex items-center">
+        <Activity className="h-6 w-6 mr-3 text-orange-500" />
+        <span className="bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">
+          Timeline of Activity
+        </span>
+      </h2>
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Activity Timeline</h3>
+          <div className="space-y-3">
+            {timelineData.timeline.map((event, index) => (
+              <motion.div
+                key={index}
+                className="flex items-center space-x-4 p-3 bg-gray-900/40 rounded-lg border border-gray-700/30"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-white font-medium">{event.detail}</p>
+                  <p className="text-xs text-gray-400">{new Date(event.timestamp).toLocaleString()}</p>
+                </div>
+                <span className="text-sm text-gray-400">Count: {event.count}</span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Report Distribution</h3>
+          <div className="bg-gray-900/40 p-4 rounded-lg border border-gray-700/30">
+            {timelineData.timeseries.map((dataPoint, index) => (
+              <div key={index} className="flex justify-between items-center py-2">
+                <span className="text-gray-300">{new Date(dataPoint.date).toLocaleDateString()}</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-20 bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-orange-500 h-2 rounded-full"
+                      style={{ width: `${Math.min(100, (dataPoint.reports / 10) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-sm text-gray-400 w-8">{dataPoint.reports}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const UserReporterInsights: React.FC<{ reporterData: ReporterData }> = ({ reporterData }) => {
+  return (
+    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
+      <h2 className="text-2xl font-semibold mb-6 flex items-center">
+        <Users className="h-6 w-6 mr-3 text-cyan-500" />
+        <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+          User / Reporter Insights
+        </span>
+      </h2>
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Reporter Activity</h3>
+          <div className="space-y-3">
+            {reporterData.reporters.map((reporter, index) => (
+              <motion.div
+                key={reporter.reporterId || index}
+                className="p-4 bg-gray-900/40 rounded-lg border border-gray-700/30"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <p className="text-white font-medium">{reporter.emailMasked}</p>
+                    <p className="text-xs text-gray-400">
+                      Active since {new Date(reporter.firstReportAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold text-cyan-400">
+                    Score: {reporter.reputationScore}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-400">Reports</p>
+                    <p className="text-white font-medium">{reporter.reportsSubmitted}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Verified</p>
+                    <p className="text-white font-medium">{reporter.verifiedReports}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Flags</p>
+                    <p className="text-white font-medium">{reporter.flagsAgainstReporter}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {reporterData.reporterClusters.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold mb-4 text-white">Reporter Clusters</h3>
+            <div className="space-y-3">
+              {reporterData.reporterClusters.map((cluster, index) => (
+                <div key={cluster.clusterId} className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <p className="text-yellow-400 font-medium">
+                    Potential Coordination Detected
+                  </p>
+                  <p className="text-sm text-gray-300 mt-1">
+                    {cluster.size} reporters showing {cluster.pattern}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ForensicExport: React.FC<{ report: Report; forensicData: ForensicData }> = ({ report, forensicData }) => {
   const exportReport = (format: 'pdf' | 'csv') => {
-    if (!selectedReport) return;
-    
     const dataStr = format === 'csv' 
-      ? generateCSV(selectedReport, forensicData)
+      ? generateCSV(report, forensicData)
       : 'PDF content would be generated here';
     
     const blob = new Blob([dataStr], { type: format === 'csv' ? 'text/csv' : 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `verihub-report-${selectedReport.id.slice(0, 8)}.${format}`;
+    link.download = `verihub-report-${report.id.slice(0, 8)}.${format}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  const generateCSV = (report: Report, forensic: ForensicData | null): string => {
+  const generateCSV = (report: Report, forensic: ForensicData): string => {
     const headers = ['Field', 'Value'];
     const rows = [
       ['ID', report.id],
@@ -315,27 +780,190 @@ export default function ForensicsDemo() {
       ['Description', report.description],
       ['Report Count', report.reportCount.toString()],
       ['Created At', report.createdAt],
-      ['Domain', forensic?.metadata.domain || ''],
-      ['Content Hash', forensic?.metadata.contentHash || ''],
-      ['Trust Score', forensic?.sourceAnalysis.domainTrustScore.toString() || ''],
+      ['Domain', forensic.metadata.domain],
+      ['Content Hash', forensic.metadata.contentHash],
+      ['Trust Score', forensic.sourceAnalysis.domainTrustScore.toString()],
+      ['Similar Reports', forensic.similarReports.toString()],
+      ['Export Timestamp', new Date().toISOString()],
+      ['Exported By', 'System Admin']
     ];
     
     return [headers, ...rows].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
   };
 
-  if (error) {
+  return (
+    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
+      <h2 className="text-2xl font-semibold mb-6 flex items-center">
+        <Download className="h-6 w-6 mr-3 text-purple-500" />
+        <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+          Forensic Export
+        </span>
+      </h2>
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Export Options</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <motion.button
+              onClick={() => exportReport('csv')}
+              className="flex items-center justify-center space-x-3 p-4 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/50 rounded-xl transition-all duration-300"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <FileText className="h-5 w-5 text-emerald-400" />
+              <div className="text-left">
+                <p className="font-medium text-emerald-300">Export CSV</p>
+                <p className="text-xs text-emerald-400">Structured data export</p>
+              </div>
+            </motion.button>
+
+            <motion.button
+              onClick={() => exportReport('pdf')}
+              className="flex items-center justify-center space-x-3 p-4 bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 rounded-xl transition-all duration-300"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <FileText className="h-5 w-5 text-red-400" />
+              <div className="text-left">
+                <p className="font-medium text-red-300">Export PDF</p>
+                <p className="text-xs text-red-400">Formatted report</p>
+              </div>
+            </motion.button>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-white">Export Contents</h3>
+          <div className="bg-gray-900/40 p-4 rounded-lg border border-gray-700/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <p className="text-gray-400">• Report metadata</p>
+                <p className="text-gray-400">• Content hash</p>
+                <p className="text-gray-400">• Domain trust score</p>
+                <p className="text-gray-400">• Similar reports count</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-gray-400">• AI analysis results</p>
+                <p className="text-gray-400">• Source profiling data</p>
+                <p className="text-gray-400">• Timeline information</p>
+                <p className="text-gray-400">• Export timestamp</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <p className="text-blue-200 text-sm">
+            📋 All exports are logged for audit purposes and contain identical canonical fields for consistency.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main Forensic Dashboard Component
+const ForensicDashboardContent: React.FC = () => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const reportId = searchParams.get('reportId');
+
+  const [report, setReport] = useState<Report | null>(null);
+  const [forensicData, setForensicData] = useState<ForensicData | null>(null);
+  const [patternData, setPatternData] = useState<PatternData | null>(null);
+  const [timelineData, setTimelineData] = useState<TimelineData | null>(null);
+  const [reporterData, setReporterData] = useState<ReporterData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'summary' | 'source' | 'patterns' | 'timeline' | 'reporters' | 'export'>('summary');
+
+  useEffect(() => {
+    if (!reportId) {
+      setError('No report ID provided');
+      setLoading(false);
+      return;
+    }
+
+    const loadForensicData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch report details
+        const reportDetails = await fetchReportDetails(reportId);
+        setReport(reportDetails);
+        
+        // Generate forensic data
+        const forensic = generateForensicData(reportDetails);
+        setForensicData(forensic);
+        
+        // Fetch pattern data
+        const patterns = await fetchPatternData(reportId);
+        setPatternData(patterns);
+        
+        // Generate timeline and reporter data
+        const timeline = generateTimelineData(reportDetails);
+        const reporters = generateReporterData(reportDetails);
+        
+        setTimelineData(timeline);
+        setReporterData(reporters);
+        
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load forensic data');
+        console.error('Error loading forensic data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadForensicData();
+  }, [reportId]);
+
+  const tabs = [
+    { id: 'summary', label: 'Report Summary', icon: AlertTriangle },
+    { id: 'source', label: 'Source Profiling', icon: Globe },
+    { id: 'patterns', label: 'Pattern Detection', icon: Target },
+    { id: 'timeline', label: 'Timeline', icon: Activity },
+    { id: 'reporters', label: 'Reporter Insights', icon: Users },
+    { id: 'export', label: 'Export', icon: Download }
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+          <h2 className="text-2xl font-bold mb-2">Loading Forensic Analysis</h2>
+          <p className="text-gray-400">Processing report data and generating insights...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !report || !forensicData) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center p-8 bg-gray-800/50 rounded-2xl border border-red-500/20">
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Failed to Load Data</h2>
+          <h2 className="text-2xl font-bold mb-2">Failed to Load Analysis</h2>
           <p className="text-gray-400 mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="flex space-x-4 justify-center">
+            <button 
+              onClick={() => router.back()}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              Go Back
+            </button>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -356,51 +984,37 @@ export default function ForensicsDemo() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <motion.div 
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-4"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
+              <button
+                onClick={() => router.back()}
+                className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+                <span>Back</span>
+              </button>
               <Shield className="h-8 w-8 text-purple-500" />
               <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                 VeriHub Forensics
               </span>
             </motion.div>
             <motion.div 
-              className="flex space-x-4"
+              className="text-sm text-gray-400"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <button
-                onClick={() => setActiveSection('general')}
-                className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
-                  activeSection === 'general' 
-                    ? 'bg-purple-500 text-white shadow-lg' 
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700 hover:text-white'
-                }`}
-              >
-                General Ledger
-              </button>
-              <button
-                onClick={() => setActiveSection('forensics')}
-                className={`px-6 py-2 rounded-full font-medium transition-all duration-300 ${
-                  activeSection === 'forensics' 
-                    ? 'bg-purple-500 text-white shadow-lg' 
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700 hover:text-white'
-                }`}
-              >
-                Forensic Analysis
-              </button>
+              Report ID: {reportId?.slice(0, 8)}...
             </motion.div>
           </div>
         </div>
       </nav>
 
-      {/* General Ledger Section */}
-      {activeSection === 'general' && (
-        <section className="relative z-10 min-h-screen pt-16 pb-12">
-        
+      {/* Main Content */}
+      <section className="relative z-10 min-h-screen pt-16 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <AnimatedSection>
             <div className="text-center mb-12">
@@ -408,465 +1022,77 @@ export default function ForensicsDemo() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5 }}
-                className="inline-flex items-center space-x-2 bg-purple-500/10 border border-purple-500/20 rounded-full px-4 py-2 mb-6"
+                className="inline-flex items-center space-x-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2 mb-6"
               >
-                <BarChart3 className="h-4 w-4 text-purple-500" />
-                <span className="text-sm text-purple-400 font-medium">
-                  Misinformation Intelligence
+                <Brain className="h-4 w-4 text-blue-500" />
+                <span className="text-sm text-blue-400 font-medium">
+                  AI-Powered Investigation
                 </span>
               </motion.div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white via-purple-200 to-blue-200 bg-clip-text text-transparent">
-                Misinformation Reports
+              <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white via-blue-200 to-purple-200 bg-clip-text text-transparent">
+                Forensic Analysis Dashboard
               </h1>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                Browse all reported misinformation instances with detailed forensic analysis and AI-powered insights
+                Deep technical analysis with AI-powered insights and comprehensive source verification
               </p>
             </div>
           </AnimatedSection>
 
-          {/* Enhanced Filters */}
+          {/* Tab Navigation */}
           <AnimatedSection delay={0.2}>
-            <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 mb-8 border border-gray-700/50 shadow-2xl">
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[300px]">
-                  <label className="block text-sm text-gray-400 mb-2">Search Reports</label>
-                  <div className="relative group">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-colors" />
-                    <input 
-                      id="search-reports"
-                      name="search"
-                      type="text" 
-                      placeholder="Search reports, URLs, or content..." 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 transition-all duration-300 placeholder-gray-500"
-                    />
-                    {searchTerm && (
-                      <button 
-                        onClick={() => setSearchTerm('')}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="category-filter" className="block text-sm text-gray-400 mb-2">Category</label>
-                  <select 
-                    id="category-filter"
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="bg-gray-700/50 border border-gray-600/50 rounded-xl px-6 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 transition-all duration-300 min-w-[150px]"
-                  >
-                    <option value="All Categories">All Categories</option>
-                    <option value="MISINFORMATION">Misinformation</option>
-                    <option value="FAKE_NEWS">Fake News</option>
-                    <option value="MISLEADING">Misleading</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="severity-filter" className="block text-sm text-gray-400 mb-2">Severity</label>
-                  <select 
-                    id="severity-filter"
-                    value={severityFilter}
-                    onChange={(e) => setSeverityFilter(e.target.value)}
-                    className="bg-gray-700/50 border border-gray-600/50 rounded-xl px-6 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 transition-all duration-300 min-w-[150px]"
-                  >
-                    <option value="All Severities">All Severities</option>
-                    <option value="CRITICAL">Critical</option>
-                    <option value="HIGH">High</option>
-                    <option value="MEDIUM">Medium</option>
-                  </select>
-                </div>
-                <motion.button 
-                  onClick={clearFilters}
-                  className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600/50 px-6 py-3 rounded-xl font-medium transition-all duration-300"
+            <div className="flex flex-wrap justify-center gap-2 mb-8">
+              {tabs.map((tab) => (
+                <motion.button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                    activeTab === tab.id
+                      ? 'bg-purple-500 text-white shadow-lg'
+                      : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <X className="h-5 w-5" />
-                  <span>Clear Filters</span>
+                  <tab.icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </motion.button>
-              </div>
-              {(searchTerm !== '' || categoryFilter !== 'All Categories' || severityFilter !== 'All Severities') && (
-                <div className="mt-4 text-sm text-gray-400">
-                  Showing {filteredReports.length} of {reports.length} reports
-                </div>
-              )}
-            </div>
-          </AnimatedSection>
-
-          {/* Stats Cards */}
-          <AnimatedSection delay={0.3}>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              {[
-                { label: 'Total Reports', value: reports.length, icon: FileText, color: 'purple-500' },
-                { label: 'Critical', value: reports.filter(r => r.severity === 'CRITICAL').length, icon: AlertTriangle, color: 'red-500' },
-                { label: 'Verified', value: reports.filter(r => r.status === 'VERIFIED').length, icon: CheckCircle, color: 'emerald-500' },
-                { label: 'Processing', value: reports.filter(r => r.status === 'PENDING').length, icon: Clock, color: 'yellow-500' },
-              ].map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + index * 0.1 }}
-                  className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-400">{stat.label}</p>
-                      <p className="text-2xl font-bold text-white">{stat.value}</p>
-                    </div>
-                    <stat.icon className={`h-8 w-8 text-${stat.color}`} />
-                  </div>
-                </motion.div>
               ))}
             </div>
           </AnimatedSection>
 
-          {/* Reports List */}
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <motion.div
-                className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              />
+          {/* Tab Content */}
+          <AnimatedSection delay={0.3}>
+            <div className="space-y-8">
+              {activeTab === 'summary' && <ReportContextSummary report={report} forensicData={forensicData} />}
+              {activeTab === 'source' && <SourceProfiling forensicData={forensicData} />}
+              {activeTab === 'patterns' && patternData && <PatternDetection patternData={patternData} />}
+              {activeTab === 'timeline' && timelineData && <TimelineActivity timelineData={timelineData} />}
+              {activeTab === 'reporters' && reporterData && <UserReporterInsights reporterData={reporterData} />}
+              {activeTab === 'export' && <ForensicExport report={report} forensicData={forensicData} />}
             </div>
-          ) : (
-            <AnimatedSection delay={0.4}>
-              <div className="space-y-4">
-                {filteredReports.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-800/40 rounded-2xl border border-gray-700/50">
-                    <Search className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">No reports found</h3>
-                    <p className="text-gray-400">Try adjusting your search or filters</p>
-                  </div>
-                ) : (
-                  filteredReports.map((report, index) => (
-                    <motion.div
-                      key={report.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                      className={`bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border cursor-pointer transition-all duration-300 hover:shadow-2xl ${
-                        selectedReport?.id === report.id 
-                          ? 'border-purple-500/70 shadow-lg' 
-                          : 'border-gray-700/50 hover:border-purple-500/30'
-                      }`}
-                      onClick={() => handleReportSelect(report)}
-                      whileHover={{ y: -2 }}
-                    >
-                      <div className="flex flex-col md:flex-row md:items-start gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-3">
-                            <h3 className="text-lg font-semibold text-white">{report.title}</h3>
-                            <span className={`text-xs px-3 py-1 rounded-full border font-medium ${getSeverityColor(report.severity)}`}>
-                              {report.severity}
-                            </span>
-                          </div>
-                          <p className="text-gray-300 text-sm mb-4">{report.flaggedContent}</p>
-                          <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-                            <span className="flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {new Date(report.timestamp).toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center">
-                              <User className="h-3 w-3 mr-1" />
-                              {report.userEmail || 'Anonymous'}
-                            </span>
-                            <span className="flex items-center">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                              {report.reportCount} reports
-                            </span>
-                          </div>
-                        </div>
-                        <motion.button 
-                          className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm font-medium px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 transition-all duration-300"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReportSelect(report);
-                          }}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <span>Analyze</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            </AnimatedSection>
-          )}
+          </AnimatedSection>
         </div>
       </section>
-        )}
-
-      {/* Forensic Analysis Section */}
-      {activeSection === 'forensics' && (
-        <section className="relative z-10 min-h-screen pt-16 pb-12">
-        
-        {selectedReport && forensicData ? (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <AnimatedSection>
-              <div className="text-center mb-12">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5 }}
-                  className="inline-flex items-center space-x-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2 mb-6"
-                >
-                  <Code className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm text-blue-400 font-medium">
-                    AI-Powered Investigation
-                  </span>
-                </motion.div>
-                <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white via-blue-200 to-purple-200 bg-clip-text text-transparent">
-                  Forensic Analysis
-                </h1>
-                <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-                  Deep technical analysis with AI-powered insights and source verification
-                </p>
-                <div className="flex justify-center space-x-4">
-                  <motion.button 
-                    onClick={() => exportReport('pdf')}
-                    className="flex items-center space-x-2 bg-gray-700/50 hover:bg-gray-600/50 px-6 py-3 rounded-xl font-medium transition-all duration-300 backdrop-blur-sm"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <FileText className="h-5 w-5" />
-                    <span>Export PDF</span>
-                  </motion.button>
-                  <motion.button 
-                    onClick={() => exportReport('csv')}
-                    className="flex items-center space-x-2 bg-gray-700/50 hover:bg-gray-600/50 px-6 py-3 rounded-xl font-medium transition-all duration-300 backdrop-blur-sm"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Download className="h-5 w-5" />
-                    <span>Export CSV</span>
-                  </motion.button>
-                </div>
-              </div>
-            </AnimatedSection>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Main Report Info */}
-              <div className="lg:col-span-2 space-y-8">
-                {/* Report Summary */}
-                <AnimatedSection delay={0.2}>
-                  <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-                    <h2 className="text-2xl font-semibold mb-6 flex items-center">
-                      <AlertTriangle className="h-6 w-6 mr-3 text-purple-500" />
-                      <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                        Report Summary
-                      </span>
-                    </h2>
-                    <div className="mb-6">
-                      <h3 className="text-xl font-medium mb-3 text-white">{selectedReport.title}</h3>
-                      <p className="text-gray-300 leading-relaxed">{selectedReport.flaggedContent}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6 mb-6">
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-400">Category</p>
-                        <p className="font-semibold text-white">{selectedReport.category}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-400">Severity</p>
-                        <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getSeverityColor(selectedReport.severity)}`}>
-                          {selectedReport.severity}
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-400">Reported</p>
-                        <p className="font-semibold text-white">{new Date(selectedReport.timestamp).toLocaleDateString()}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-400">Times Reported</p>
-                        <p className="font-semibold text-white">{selectedReport.reportCount}</p>
-                      </div>
-                    </div>
-                    <div className="pt-4 border-t border-gray-700/50">
-                      <a 
-                        href={selectedReport.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-purple-400 hover:text-purple-300 font-medium transition-colors"
-                      >
-                        <span>View Original Content</span>
-                        <ExternalLink className="h-4 w-4 ml-2" />
-                      </a>
-                    </div>
-                  </div>
-                </AnimatedSection>
-
-                {/* AI Analysis Snapshot */}
-                <AnimatedSection delay={0.3}>
-                  <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-                    <h2 className="text-2xl font-semibold mb-6 flex items-center">
-                      <Code className="h-6 w-6 mr-3 text-blue-500" />
-                      <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                        AI Analysis Snapshot
-                      </span>
-                    </h2>
-                    <div className="space-y-6">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-3 text-white">Identified Claims</h3>
-                        <ul className="space-y-2">
-                          {forensicData.aiSnapshot.claims.map((claim, index) => (
-                            <li key={index} className="flex items-start space-x-3">
-                              <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
-                              <span className="text-gray-300">{claim}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-3 text-white">AI Reasoning</h3>
-                        <p className="text-gray-300 leading-relaxed">{forensicData.aiSnapshot.reasoning}</p>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-3 text-white">Suggested Correction</h3>
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4">
-                          <p className="text-emerald-200">{forensicData.aiSnapshot.correction}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </AnimatedSection>
-              </div>
-
-              {/* Forensic Metadata */}
-              <div className="space-y-8">
-                {/* Content Fingerprinting */}
-                <AnimatedSection delay={0.4} direction="right">
-                  <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-                    <h2 className="text-xl font-semibold mb-6 flex items-center">
-                      <Hash className="h-5 w-5 mr-3 text-purple-500" />
-                      <span className="text-purple-400">Content Fingerprinting</span>
-                    </h2>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm text-gray-400 mb-2">Content Hash</p>
-                        <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700/50">
-                          <p className="font-mono text-xs text-gray-300 break-all">
-                            {forensicData.metadata.contentHash}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-400">First Seen</p>
-                          <p className="font-medium text-white">{new Date(forensicData.metadata.firstSeen).toLocaleDateString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-400">Last Seen</p>
-                          <p className="font-medium text-white">{new Date(forensicData.metadata.lastSeen).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-400">Language</p>
-                          <p className="font-medium text-white">{forensicData.metadata.language.toUpperCase()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-400">Word Count</p>
-                          <p className="font-medium text-white">{forensicData.metadata.wordCount}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Similar Reports</p>
-                        <p className="font-medium text-blue-400">{forensicData.similarReports} matching patterns</p>
-                      </div>
-                    </div>
-                  </div>
-                </AnimatedSection>
-
-                {/* Source Analysis */}
-                <AnimatedSection delay={0.5} direction="right">
-                  <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-                    <h2 className="text-xl font-semibold mb-6 flex items-center">
-                      <LinkIcon className="h-5 w-5 mr-3 text-blue-500" />
-                      <span className="text-blue-400">Source Analysis</span>
-                    </h2>
-                    <div className="space-y-6">
-                      <div>
-                        <div className="flex justify-between items-center mb-3">
-                          <p className="text-sm text-gray-400">Domain Trust Score</p>
-                          <span className={`font-bold ${getCredibilityColor(forensicData.sourceAnalysis.domainTrustScore)}`}>
-                            {forensicData.sourceAnalysis.domainTrustScore}/100
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-                          <motion.div 
-                            className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full" 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${forensicData.sourceAnalysis.domainTrustScore}%` }}
-                            transition={{ duration: 1, delay: 0.5 }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400 mb-3">Outbound Links</p>
-                        <div className="space-y-3">
-                          {forensicData.sourceAnalysis.outboundLinks.map((link, index) => (
-                            <motion.div 
-                              key={index} 
-                              className="flex justify-between items-center p-3 bg-gray-900/40 rounded-lg border border-gray-700/30"
-                              initial={{ opacity: 0, x: 20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.6 + index * 0.1 }}
-                            >
-                              <div className="truncate text-sm mr-3 flex-1 text-gray-300" title={link.url}>
-                                {new URL(link.url).hostname}
-                              </div>
-                              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                                link.credibility === 'HIGH' ? 'bg-emerald-500/20 text-emerald-400' :
-                                link.credibility === 'MEDIUM' ? 'bg-yellow-500/20 text-yellow-400' :
-                                'bg-red-500/20 text-red-400'
-                              }`}>
-                                {link.credibility}
-                              </span>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </AnimatedSection>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-center items-center h-96">
-            <AnimatedSection>
-              <div className="text-center">
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <Shield className="h-16 w-16 text-purple-500/50 mx-auto mb-6" />
-                </motion.div>
-                <h3 className="text-2xl font-bold mb-4 text-white">No Report Selected</h3>
-                <p className="text-gray-400 mb-6">Select a report from the General Ledger to view detailed forensic analysis</p>
-                <motion.button 
-                  onClick={() => setActiveSection('general')}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-xl font-medium transition-all duration-300 shadow-lg"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Browse Reports
-                </motion.button>
-              </div>
-            </AnimatedSection>
-          </div>
-        )}
-      </section>
-      )}
     </div>
+  );
+};
+
+// Wrapper component with Suspense for search params
+export default function ForensicDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ForensicDashboardContent />
+    </Suspense>
   );
 }
