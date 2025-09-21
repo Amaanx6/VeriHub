@@ -89,7 +89,7 @@ export function Header() {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center space-x-4">
             <a
-              href="https://github.com/verihub/extension"
+              href="https://github.com/mohfazam2/VeriHub"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center space-x-2 text-veri-gray-light hover:text-white transition-colors py-2 px-3"
