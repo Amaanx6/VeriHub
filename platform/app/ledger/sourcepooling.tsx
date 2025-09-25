@@ -179,7 +179,7 @@ const SourcePoolingCard: React.FC<SourcePoolingCardProps> = ({ sourceData, loadi
             <Globe className="h-6 w-6 text-purple-400" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-white">Entity Intelligence</h3>
+            <h3 className="text-xl font-semibold text-white">Source Pooling</h3>
             <p className="text-sm text-gray-400">Cross-referenced entity analysis</p>
           </div>
         </div>
