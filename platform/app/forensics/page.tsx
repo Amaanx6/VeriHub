@@ -171,7 +171,7 @@ const fetchReportDetails = async (reportId: string): Promise<Report> => {
       return reportCache;
     }
 
-    const response = await fetch(`${API_BASE_URL}/reports/details/${reportId}`);
+    const response = await fetch(`${API_BASE_URL}/reports/details/${reportId}`, { cache: 'no-cache' });
     const data = await response.json();
     
     if (data.success) {
@@ -190,20 +190,23 @@ const fetchReportDetails = async (reportId: string): Promise<Report> => {
 
 const fetchPatternData = async (reportId: string): Promise<PatternData> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/reports/pattern-detect`);
+    const response = await fetch(`${API_BASE_URL}/reports/pattern-detect/${reportId}`, { cache: 'no-cache' });
     const data = await response.json();
     
     if (data.success) {
-      // Transform the response to match our PatternData interface
-      return {
+      // Assume backend returns { success: true, data: PatternData }
+      return data.data || {
         patterns: [],
         similarReports: [
-          { reportId: data.reportId, similarityScore: 0.85 }
+          { reportId: reportId, similarityScore: 0.85 }
         ]
       };
     }
     
-    // Return mock data for now
+    throw new Error('Failed to fetch pattern data');
+  } catch (error) {
+    console.error('Error fetching pattern data:', error);
+    // Return mock data as fallback
     return {
       patterns: [
         {
@@ -225,15 +228,8 @@ const fetchPatternData = async (reportId: string): Promise<PatternData> => {
         }
       ],
       similarReports: [
-        { reportId: data.reportId || reportId, similarityScore: 0.85 }
+        { reportId: reportId, similarityScore: 0.85 }
       ]
-    };
-  } catch (error) {
-    console.error('Error fetching pattern data:', error);
-    // Return mock data as fallback
-    return {
-      patterns: [],
-      similarReports: []
     };
   }
 };

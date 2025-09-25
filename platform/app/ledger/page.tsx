@@ -14,14 +14,13 @@ import {
   Clock,
   User,
   X,
-  TrendingUp,
-  Globe,
   RefreshCw,
-  AlertCircle,
+  Globe,
   ExternalLink,
-  Activity,
-  Zap
+  Users,
+  Crosshair
 } from 'lucide-react';
+import SourcePoolingCard, { useSourcePooling, SourceProfileResponse } from './sourcepooling';
 
 // AnimatedSection component definition
 interface AnimatedSectionProps {
@@ -68,53 +67,18 @@ interface Report {
   timestamp: string;
 }
 
-interface SourceData {
-  domain: string;
-  reportCount: number;
-  severityBreakdown: {
-    CRITICAL: number;
-    HIGH: number;
-    MEDIUM: number;
-    LOW: number;
-  };
-  firstReportedAt: string;
-  lastReportedAt: string;
-  domainTrustScore: number;
-  tags: string[];
-  topUrls: Array<{ url: string; reportCount: number }>;
-  notes: string | null;
-}
-
-interface SourceProfileResponse {
-  success: boolean;
-  analysis_timestamp: string;
-  total_reports_analyzed: number;
-  total_entities_found: number;
-  cross_referenced_entities: number;
-  sources: SourceData[];
-  summary: {
-    high_risk_sources: number;
-    medium_risk_sources: number;
-    low_risk_sources: number;
-    most_dangerous_entity: string | null;
-  };
-  query_parameters: {
-    risk_threshold: number;
-    entity_type: string;
-    limit: number;
-  };
-}
-
-// API service functions (removed caching)
+// API service functions
 const API_BASE_URL = 'https://verihubbackend.vercel.app/api';
 
 const fetchReports = async (): Promise<Report[]> => {
   try {
-    console.log('Fetching reports from:', `${API_BASE_URL}/reports/list`);
-    const response = await fetch(`${API_BASE_URL}/reports/list`, {
+    const timestamp = Date.now();
+    console.log('Fetching reports from:', `${API_BASE_URL}/reports/list?t=${timestamp}`);
+    const response = await fetch(`${API_BASE_URL}/reports/list?t=${timestamp}`, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
       },
     });
     
@@ -123,7 +87,7 @@ const fetchReports = async (): Promise<Report[]> => {
     }
     
     const data = await response.json();
-    console.log('Reports response:', data);
+    console.log('Reports response:', JSON.stringify(data, null, 2));
     
     if (data.success && Array.isArray(data.data)) {
       return data.data;
@@ -136,319 +100,48 @@ const fetchReports = async (): Promise<Report[]> => {
   }
 };
 
-const fetchSourceProfile = async (): Promise<SourceProfileResponse> => {
-  try {
-    console.log('Fetching source profile from:', `${API_BASE_URL}/reports/source-profile`);
-    const response = await fetch(`${API_BASE_URL}/reports/source-profile`, {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    console.log('Source profile response status:', response.status);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Source profile response:', data);
-    
-    if (data.success) {
-      return data;
-    }
-    
-    throw new Error(data.message || 'API returned unsuccessful response');
-  } catch (error) {
-    console.error('Error fetching source profile:', error);
-    throw error;
+// Create a function to transform source entity data into report-like format for display
+const transformSourceDataToReports = (sourceData: SourceProfileResponse | null): any[] => {
+  if (!sourceData || !sourceData.sources || sourceData.sources.length === 0) {
+    return [];
   }
-};
 
-// Enhanced Source Pooling Card Component
-const SourcePoolingCard: React.FC<{ 
-  sourceData: SourceProfileResponse | null; 
-  loading: boolean; 
-  error: string | null; 
-  onRefresh: () => void 
-}> = ({ sourceData, loading, error, onRefresh }) => {
-  const getTrustScoreColor = (score: number) => {
-    if (score >= 70) return 'text-emerald-400';
-    if (score >= 40) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const getTrustScoreBg = (score: number) => {
-    if (score >= 70) return 'bg-emerald-500';
-    if (score >= 40) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getRiskBadgeColor = (score: number) => {
-    if (score >= 70) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50';
-    if (score >= 40) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50';
-    return 'bg-red-500/20 text-red-300 border-red-500/50';
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const then = new Date(timestamp);
-    const diffMs = now.getTime() - then.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
-
-  return (
-    <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-purple-500/20 rounded-lg">
-            <Globe className="h-6 w-6 text-purple-400" />
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold text-white">Source Intelligence</h3>
-            <p className="text-sm text-gray-400">Domain risk analysis & tracking</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          {sourceData && (
-            <span className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded">
-              {formatTimeAgo(sourceData.analysis_timestamp)}
-            </span>
-          )}
-          <motion.button
-            onClick={onRefresh}
-            disabled={loading}
-            className="p-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors disabled:opacity-50"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <RefreshCw className={`h-4 w-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
-          </motion.button>
-        </div>
-      </div>
-
-      {/* Error State */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
-            <div>
-              <h4 className="text-red-300 font-medium">Failed to load source data</h4>
-              <p className="text-red-200 text-sm mt-1">{error}</p>
-              <button 
-                onClick={onRefresh}
-                className="mt-2 text-sm text-red-400 hover:text-red-300 underline"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && !sourceData && (
-        <div className="space-y-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="h-8 w-8 bg-gray-700 rounded-lg"></div>
-                  <div>
-                    <div className="h-4 bg-gray-700 rounded w-32 mb-1"></div>
-                    <div className="h-3 bg-gray-700 rounded w-20"></div>
-                  </div>
-                </div>
-                <div className="h-6 bg-gray-700 rounded w-12"></div>
-              </div>
-              <div className="h-2 bg-gray-700 rounded w-full mb-2"></div>
-              <div className="flex space-x-1">
-                <div className="h-4 bg-gray-700 rounded w-12"></div>
-                <div className="h-4 bg-gray-700 rounded w-16"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Data State */}
-      {sourceData && !loading && (
-        <>
-          {/* Summary Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-900/40 rounded-lg p-3 border border-gray-700/30">
-              <div className="text-xs text-gray-400 mb-1">Total Domains</div>
-              <div className="text-lg font-bold text-white">{sourceData.total_entities_found}</div>
-            </div>
-            <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20">
-              <div className="text-xs text-red-400 mb-1">High Risk</div>
-              <div className="text-lg font-bold text-red-300">{sourceData.summary.high_risk_sources}</div>
-            </div>
-            <div className="bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/20">
-              <div className="text-xs text-yellow-400 mb-1">Medium Risk</div>
-              <div className="text-lg font-bold text-yellow-300">{sourceData.summary.medium_risk_sources}</div>
-            </div>
-            <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20">
-              <div className="text-xs text-emerald-400 mb-1">Low Risk</div>
-              <div className="text-lg font-bold text-emerald-300">{sourceData.summary.low_risk_sources}</div>
-            </div>
-          </div>
-
-          {/* Top Sources */}
-          {sourceData.sources && sourceData.sources.length > 0 ? (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-300 mb-3">High-Risk Domains</h4>
-              {sourceData.sources.slice(0, 6).map((source, index) => (
-                <motion.div 
-                  key={source.domain || index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="p-4 bg-gray-900/40 rounded-lg border border-gray-700/30 hover:border-gray-600/50 transition-all duration-300"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <Activity className="h-4 w-4 text-purple-400" />
-                        <span className="text-sm font-medium text-white truncate" title={source.domain}>
-                          {source.domain || 'Unknown Domain'}
-                        </span>
-                        <ExternalLink className="h-3 w-3 text-gray-500" />
-                      </div>
-                      <div className="flex items-center space-x-4 text-xs text-gray-400">
-                        <span className="flex items-center">
-                          <Zap className="h-3 w-3 mr-1" />
-                          {source.reportCount || 0} reports
-                        </span>
-                        <span>
-                          Last seen: {source.lastReportedAt ? formatTimeAgo(source.lastReportedAt) : 'Unknown'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end space-y-2">
-                      <span className={`text-sm font-bold ${getTrustScoreColor(source.domainTrustScore || 0)}`}>
-                        {source.domainTrustScore || 0}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded-full border font-medium ${getRiskBadgeColor(source.domainTrustScore || 0)}`}>
-                        {(source.domainTrustScore || 0) >= 70 ? 'Low Risk' : 
-                         (source.domainTrustScore || 0) >= 40 ? 'Medium' : 'High Risk'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Trust Score Bar */}
-                  <div className="w-full bg-gray-700 rounded-full h-2 mb-3">
-                    <div 
-                      className={`h-2 rounded-full transition-all duration-500 ${getTrustScoreBg(source.domainTrustScore || 0)}`}
-                      style={{ width: `${source.domainTrustScore || 0}%` }}
-                    />
-                  </div>
-
-                  {/* Severity Breakdown */}
-                  {source.severityBreakdown && (
-                    <div className="grid grid-cols-4 gap-2 text-xs">
-                      <div className="text-red-400">
-                        Critical: {source.severityBreakdown.CRITICAL || 0}
-                      </div>
-                      <div className="text-orange-400">
-                        High: {source.severityBreakdown.HIGH || 0}
-                      </div>
-                      <div className="text-yellow-400">
-                        Medium: {source.severityBreakdown.MEDIUM || 0}
-                      </div>
-                      <div className="text-gray-400">
-                        Low: {source.severityBreakdown.LOW || 0}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {source.tags && source.tags.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {source.tags.slice(0, 3).map((tag, tagIndex) => (
-                        <span 
-                          key={tagIndex} 
-                          className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded border border-purple-500/30"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {source.tags.length > 3 && (
-                        <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-1 rounded">
-                          +{source.tags.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Globe className="h-12 w-12 text-gray-500 mx-auto mb-3" />
-              <p className="text-gray-400">No domain data available</p>
-            </div>
-          )}
-
-          {/* Most Dangerous Entity Alert */}
-          {sourceData.summary.most_dangerous_entity && (
-            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                <span className="text-sm text-red-300 font-medium">
-                  Highest Risk Domain: {sourceData.summary.most_dangerous_entity}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="mt-6 pt-4 border-t border-gray-700/50 text-xs text-gray-500">
-            <div className="flex justify-between items-center">
-              <span>Last analyzed: {new Date(sourceData.analysis_timestamp).toLocaleString()}</span>
-              <span>{sourceData.total_reports_analyzed} reports analyzed</span>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Empty State */}
-      {!sourceData && !loading && !error && (
-        <div className="text-center py-8">
-          <Globe className="h-12 w-12 text-gray-500 mx-auto mb-3" />
-          <p className="text-gray-400 mb-2">No source data available</p>
-          <button 
-            onClick={onRefresh}
-            className="text-sm text-purple-400 hover:text-purple-300"
-          >
-            Load data
-          </button>
-        </div>
-      )}
-    </div>
-  );
+  return sourceData.sources.map((entity, index) => ({
+    id: `entity-${entity.type}-${index}`,
+    entityType: entity.type,
+    entityValue: entity.value,
+    linkedReports: entity.linked_reports,
+    totalReportCount: entity.total_report_count,
+    riskScore: entity.risk_score,
+    severityBreakdown: entity.severity_breakdown,
+    firstSeen: entity.first_seen,
+    lastSeen: entity.last_seen,
+    insights: entity.insights,
+    // Add fields to match Report interface for display
+    title: `${entity.type.replace('_', ' ').toUpperCase()} Analysis: ${entity.value}`,
+    flaggedContent: `Entity appears in ${entity.linked_reports} reports with ${entity.total_report_count} total mentions. Risk score: ${entity.risk_score}/10`,
+    category: 'ENTITY_ANALYSIS',
+    severity: entity.risk_score >= 7 ? 'CRITICAL' : entity.risk_score >= 4 ? 'HIGH' : 'MEDIUM',
+    status: 'ANALYZED',
+    timestamp: entity.last_seen,
+    isEntityData: true // Flag to identify this as entity data
+  }));
 };
 
 export default function GeneralLedger() {
   const [reports, setReports] = useState<Report[]>([]);
-  const [sourceProfile, setSourceProfile] = useState<SourceProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sourceLoading, setSourceLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sourceError, setSourceError] = useState<string | null>(null);
   const router = useRouter();
+  
+  // Use the source pooling hook
+  const { sourceProfile, loading: sourceLoading, error: sourceError, loadSourceProfile } = useSourcePooling();
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [severityFilter, setSeverityFilter] = useState('All Severities');
+  const [dataView, setDataView] = useState<'reports' | 'entities'>('reports');
 
   const loadReports = async () => {
     try {
@@ -464,42 +157,71 @@ export default function GeneralLedger() {
     }
   };
 
-  const loadSourceProfile = async () => {
-    try {
-      setSourceLoading(true);
-      setSourceError(null);
-      const sourceData = await fetchSourceProfile();
-      setSourceProfile(sourceData);
-    } catch (err) {
-      setSourceError(err instanceof Error ? err.message : 'Failed to load source profile');
-      console.error('Error loading source profile:', err);
-    } finally {
-      setSourceLoading(false);
-    }
-  };
-
   useEffect(() => {
     loadReports();
     loadSourceProfile();
   }, []);
 
-  // Filter reports based on search and filter criteria
-  const filteredReports = useMemo(() => {
-    return reports.filter(report => {
+  // Transform source data for display in Recent Reports
+  const entityReports = useMemo(() => {
+    return transformSourceDataToReports(sourceProfile);
+  }, [sourceProfile]);
+
+  // Decide which data to show based on dataView and availability
+  const displayData = dataView === 'entities' && entityReports.length > 0 ? entityReports : reports;
+  const isShowingEntities = dataView === 'entities' && entityReports.length > 0;
+
+  // Filter data based on search and filter criteria
+  const filteredData = useMemo(() => {
+    return displayData.filter(item => {
       const matchesSearch = searchTerm === '' || 
-        report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.flaggedContent.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.url.toLowerCase().includes(searchTerm.toLowerCase());
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.flaggedContent && item.flaggedContent.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.entityValue && item.entityValue.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.url && item.url.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      const matchesCategory = categoryFilter === 'All Categories' || report.category === categoryFilter;
-      const matchesSeverity = severityFilter === 'All Severities' || report.severity === severityFilter;
+      const matchesCategory = categoryFilter === 'All Categories' || 
+        (item.category === categoryFilter) ||
+        (isShowingEntities && categoryFilter === 'ENTITY_ANALYSIS');
+      
+      const matchesSeverity = severityFilter === 'All Severities' || item.severity === severityFilter;
       
       return matchesSearch && matchesCategory && matchesSeverity;
     });
-  }, [reports, searchTerm, categoryFilter, severityFilter]);
+  }, [displayData, searchTerm, categoryFilter, severityFilter, isShowingEntities]);
 
-  const handleReportSelect = (report: Report) => {
-    router.push(`/forensics?reportId=${report.id}`);
+  const handleItemSelect = (item: any) => {
+    if (item.isEntityData) {
+      // Handle entity data click - show entity details
+      console.log('Selected entity:', item.entityValue);
+      // You could implement a modal or detailed view here
+    } else {
+      router.push(`/forensics?reportId=${item.id}`);
+    }
+  };
+
+  const getEntityTypeIcon = (type: string) => {
+    switch (type) {
+      case 'domain': return <Globe className="h-4 w-4" />;
+      case 'phone': return <Users className="h-4 w-4" />;
+      case 'email': return <FileText className="h-4 w-4" />;
+      case 'bank_account': return <Shield className="h-4 w-4" />;
+      case 'upi': return <Crosshair className="h-4 w-4" />;
+      case 'social_handle': return <Users className="h-4 w-4" />;
+      default: return <FileText className="h-4 w-4" />;
+    }
+  };
+
+  const getEntityTypeColor = (type: string) => {
+    switch (type) {
+      case 'domain': return 'text-purple-400';
+      case 'phone': return 'text-blue-400';
+      case 'email': return 'text-green-400';
+      case 'bank_account': return 'text-red-400';
+      case 'upi': return 'text-orange-400';
+      case 'social_handle': return 'text-pink-400';
+      default: return 'text-gray-400';
+    }
   };
 
   const clearFilters = () => {
@@ -518,8 +240,8 @@ export default function GeneralLedger() {
   };
 
   // Get unique categories and severities for filters
-  const categories = ['All Categories', ...Array.from(new Set(reports.map(r => r.category)))];
-  const severities = ['All Severities', ...Array.from(new Set(reports.map(r => r.severity)))];
+  const categories = ['All Categories', ...Array.from(new Set(displayData.map(r => r.category)))];
+  const severities = ['All Severities', ...Array.from(new Set(displayData.map(r => r.severity)))];
 
   if (error && reports.length === 0) {
     return (
@@ -593,19 +315,23 @@ export default function GeneralLedger() {
             </div>
           </AnimatedSection>
 
+
+
           {/* Enhanced Filters */}
           <AnimatedSection delay={0.2}>
             <div className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 mb-8 border border-gray-700/50 shadow-2xl">
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[300px]">
-                  <label className="block text-sm text-gray-400 mb-2">Search Reports</label>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    {isShowingEntities ? 'Search Entities' : 'Search Reports'}
+                  </label>
                   <div className="relative group">
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-colors" />
                     <input 
-                      id="search-reports"
+                      id="search-data"
                       name="search"
                       type="text" 
-                      placeholder="Search reports, URLs, or content..." 
+                      placeholder={isShowingEntities ? 'Search entities or analysis...' : 'Search reports, URLs, or content...'} 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-12 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 transition-all duration-300 placeholder-gray-500"
@@ -658,7 +384,7 @@ export default function GeneralLedger() {
               </div>
               {(searchTerm !== '' || categoryFilter !== 'All Categories' || severityFilter !== 'All Severities') && (
                 <div className="mt-4 text-sm text-gray-400">
-                  Showing {filteredReports.length} of {reports.length} reports
+                  Showing {filteredData.length} of {displayData.length} {isShowingEntities ? 'entities' : 'reports'}
                 </div>
               )}
             </div>
@@ -676,15 +402,20 @@ export default function GeneralLedger() {
             </div>
           </AnimatedSection>
 
-          {/* Stats Cards */}
+          {/* Stats Cards - Updated for entities */}
           <AnimatedSection delay={0.3}>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              {[
+              {(isShowingEntities ? [
+                { label: 'Total Entities', value: sourceProfile?.total_entities_found || 0, icon: Globe, color: 'purple-500' },
+                { label: 'High Risk', value: sourceProfile?.summary?.high_risk_sources || 0, icon: AlertTriangle, color: 'red-500' },
+                { label: 'Reports Analyzed', value: sourceProfile?.total_reports_analyzed || 0, icon: FileText, color: 'emerald-500' },
+                { label: 'Cross-referenced', value: sourceProfile?.cross_referenced_entities || 0, icon: RefreshCw, color: 'yellow-500' },
+              ] : [
                 { label: 'Total Reports', value: reports.length, icon: FileText, color: 'purple-500' },
                 { label: 'Critical', value: reports.filter(r => r.severity === 'CRITICAL').length, icon: AlertTriangle, color: 'red-500' },
                 { label: 'Verified', value: reports.filter(r => r.status === 'VERIFIED').length, icon: CheckCircle, color: 'emerald-500' },
                 { label: 'Processing', value: reports.filter(r => r.status === 'PENDING').length, icon: Clock, color: 'yellow-500' },
-              ].map((stat, index) => (
+              ]).map((stat, index) => (
                 <motion.div
                   key={stat.label}
                   initial={{ opacity: 0, y: 20 }}
@@ -706,7 +437,7 @@ export default function GeneralLedger() {
             </div>
           </AnimatedSection>
 
-          {/* Reports List */}
+          {/* Data List - Updated for entities */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <motion.div
@@ -719,9 +450,11 @@ export default function GeneralLedger() {
             <AnimatedSection delay={0.4}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-white">Recent Reports</h2>
+                  <h2 className="text-2xl font-bold text-white">
+                    {isShowingEntities ? 'Entity Analysis' : 'Recent Reports'}
+                  </h2>
                   <motion.button 
-                    onClick={loadReports}
+                    onClick={isShowingEntities ? loadSourceProfile : loadReports}
                     className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium transition-all duration-300"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -731,22 +464,24 @@ export default function GeneralLedger() {
                   </motion.button>
                 </div>
 
-                {filteredReports.length === 0 ? (
+                {filteredData.length === 0 ? (
                   <div className="text-center py-12 bg-gray-800/40 rounded-2xl border border-gray-700/50">
                     <Search className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">No reports found</h3>
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      {isShowingEntities ? 'No entities found' : 'No reports found'}
+                    </h3>
                     <p className="text-gray-400 mb-4">
-                      {reports.length === 0 
-                        ? "No reports available at the moment" 
+                      {displayData.length === 0 
+                        ? `No ${isShowingEntities ? 'entity data' : 'reports'} available at the moment` 
                         : "Try adjusting your search or filters"
                       }
                     </p>
-                    {reports.length === 0 && (
+                    {displayData.length === 0 && (
                       <button 
-                        onClick={loadReports}
+                        onClick={isShowingEntities ? loadSourceProfile : loadReports}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
                       >
-                        Load Reports
+                        Load {isShowingEntities ? 'Entity Data' : 'Reports'}
                       </button>
                     )}
                   </div>
@@ -757,24 +492,24 @@ export default function GeneralLedger() {
                       <div className="bg-gray-800/30 rounded-xl p-4 mb-4 border border-gray-700/30">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                           <div>
-                            <div className="text-2xl font-bold text-white">{filteredReports.length}</div>
+                            <div className="text-2xl font-bold text-white">{filteredData.length}</div>
                             <div className="text-xs text-gray-400">Filtered Results</div>
                           </div>
                           <div>
                             <div className="text-2xl font-bold text-red-400">
-                              {filteredReports.filter(r => r.severity === 'CRITICAL').length}
+                              {filteredData.filter(r => r.severity === 'CRITICAL').length}
                             </div>
                             <div className="text-xs text-gray-400">Critical</div>
                           </div>
                           <div>
                             <div className="text-2xl font-bold text-orange-400">
-                              {filteredReports.filter(r => r.severity === 'HIGH').length}
+                              {filteredData.filter(r => r.severity === 'HIGH').length}
                             </div>
                             <div className="text-xs text-gray-400">High</div>
                           </div>
                           <div>
                             <div className="text-2xl font-bold text-yellow-400">
-                              {filteredReports.filter(r => r.severity === 'MEDIUM').length}
+                              {filteredData.filter(r => r.severity === 'MEDIUM').length}
                             </div>
                             <div className="text-xs text-gray-400">Medium</div>
                           </div>
@@ -782,68 +517,138 @@ export default function GeneralLedger() {
                       </div>
                     )}
 
-                    {/* Reports List */}
-                    {filteredReports.map((report, index) => (
+                    {/* Data List */}
+                    {filteredData.map((item, index) => (
                       <motion.div
-                        key={report.id}
+                        key={item.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: Math.min(index * 0.05, 1) }}
                         className="bg-gray-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:border-purple-500/30 hover:bg-gray-800/60"
-                        onClick={() => handleReportSelect(report)}
+                        onClick={() => handleItemSelect(item)}
                         whileHover={{ y: -2 }}
                       >
                         <div className="flex flex-col lg:flex-row lg:items-start gap-4">
                           <div className="flex-1">
                             <div className="flex items-start justify-between mb-3">
                               <h3 className="text-lg font-semibold text-white leading-tight pr-4">
-                                {report.title}
+                                {item.title}
                               </h3>
-                              <span className={`text-xs px-3 py-1 rounded-full border font-medium whitespace-nowrap ${getSeverityColor(report.severity)}`}>
-                                {report.severity}
+                              <span className={`text-xs px-3 py-1 rounded-full border font-medium whitespace-nowrap ${getSeverityColor(item.severity)}`}>
+                                {item.severity}
                               </span>
                             </div>
                             
                             <p className="text-gray-300 text-sm mb-4 line-clamp-2">
-                              {report.flaggedContent}
+                              {item.flaggedContent}
                             </p>
 
-                            <div className="mb-3 text-xs text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg inline-block">
-                              <span className="font-mono">{report.url}</span>
-                            </div>
+                            {/* Entity-specific display */}
+                            {item.isEntityData ? (
+                              <div className="mb-3 flex items-center space-x-2">
+                                <div className={`p-2 rounded-lg ${getEntityTypeColor(item.entityType)} bg-gray-700/50`}>
+                                  {getEntityTypeIcon(item.entityType)}
+                                </div>
+                                <div className="text-xs text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg">
+                                  <span className="font-mono">{item.entityValue}</span>
+                                  <span className="ml-2 text-gray-400 capitalize">{item.entityType.replace('_', ' ')}</span>
+                                </div>
+                              </div>
+                            ) : item.url ? (
+                              <div className="mb-3 text-xs text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg inline-block">
+                                <span className="font-mono">{item.url}</span>
+                              </div>
+                            ) : null}
                             
                             <div className="flex flex-wrap gap-4 text-xs text-gray-400">
                               <span className="flex items-center">
                                 <Clock className="h-3 w-3 mr-1" />
-                                {new Date(report.timestamp).toLocaleDateString('en-US', {
+                                {new Date(item.timestamp).toLocaleDateString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
                                   year: 'numeric'
                                 })}
                               </span>
-                              <span className="flex items-center">
-                                <User className="h-3 w-3 mr-1" />
-                                {report.userEmail || 'Anonymous'}
-                              </span>
-                              <span className="flex items-center">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                {report.reportCount} report{report.reportCount !== 1 ? 's' : ''}
-                              </span>
+                              
+                              {/* Entity-specific stats */}
+                              {item.isEntityData ? (
+                                <>
+                                  <span className="flex items-center">
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    {item.linkedReports} linked reports
+                                  </span>
+                                  <span className="flex items-center">
+                                    <Users className="h-3 w-3 mr-1" />
+                                    {item.totalReportCount} total mentions
+                                  </span>
+                                  <span className="flex items-center">
+                                    <AlertTriangle className="h-3 w-3 mr-1" />
+                                    Risk: {item.riskScore}/10
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  {item.userEmail && (
+                                    <span className="flex items-center">
+                                      <User className="h-3 w-3 mr-1" />
+                                      {item.userEmail || 'Anonymous'}
+                                    </span>
+                                  )}
+                                  {item.reportCount && (
+                                    <span className="flex items-center">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      {item.reportCount} report{item.reportCount !== 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                              
                               <span className="flex items-center">
                                 <Filter className="h-3 w-3 mr-1" />
-                                {report.category}
+                                {item.category}
                               </span>
-                              {report.status && (
+                              
+                              {item.status && (
                                 <span className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  report.status === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-300' :
-                                  report.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-300' :
+                                  item.status === 'VERIFIED' || item.status === 'ANALYZED' ? 'bg-emerald-500/20 text-emerald-300' :
+                                  item.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-300' :
                                   'bg-gray-500/20 text-gray-300'
                                 }`}>
                                   <CheckCircle className="h-3 w-3 mr-1" />
-                                  {report.status}
+                                  {item.status}
                                 </span>
                               )}
                             </div>
+
+                            {/* Entity insights */}
+                            {item.isEntityData && item.insights && item.insights.length > 0 && (
+                              <div className="mt-3">
+                                <div className="text-xs text-gray-400 mb-1">Key Insights:</div>
+                                <div className="space-y-1">
+                                  {item.insights.slice(0, 2).map((insight: string, insightIndex: number) => (
+                                    <div key={insightIndex} className="text-xs text-gray-300 bg-gray-700/30 px-2 py-1 rounded">
+                                      • {insight}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Domain-specific info for backward compatibility */}
+                            {item.domainTrustScore && (
+                              <div className="mt-3 flex items-center space-x-4 text-xs">
+                                <span className="text-gray-400">Trust Score: <strong>{item.domainTrustScore}/100</strong></span>
+                                {item.tags && item.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.tags.slice(0, 3).map((tag: string, tagIndex: number) => (
+                                      <span key={tagIndex} className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                           
                           <motion.div 
@@ -854,19 +659,19 @@ export default function GeneralLedger() {
                               className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm font-medium px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 transition-all duration-300 whitespace-nowrap"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleReportSelect(report);
+                                handleItemSelect(item);
                               }}
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                             >
-                              <span>Analyze</span>
+                              <span>{isShowingEntities ? 'View Details' : 'Analyze'}</span>
                               <ChevronRight className="h-4 w-4" />
                             </motion.button>
                             
-                            {report.reviewedAt && (
+                            {item.reviewedAt && (
                               <div className="text-xs text-gray-500">
                                 <div>Reviewed</div>
-                                <div>{new Date(report.reviewedAt).toLocaleDateString()}</div>
+                                <div>{new Date(item.reviewedAt).toLocaleDateString('en-US')}</div>
                               </div>
                             )}
                           </motion.div>
@@ -874,8 +679,8 @@ export default function GeneralLedger() {
                       </motion.div>
                     ))}
 
-                    {/* Load More Button (if there are many reports) */}
-                    {filteredReports.length > 50 && (
+                    {/* Load More Button (if there are many items) */}
+                    {filteredData.length > 50 && (
                       <div className="text-center pt-6">
                         <div className="text-sm text-gray-400 mb-4">
                           Showing first 50 results. Use filters to narrow down your search.
@@ -893,9 +698,9 @@ export default function GeneralLedger() {
             <div className="mt-12 pt-8 border-t border-gray-700/50">
               <div className="text-center text-sm text-gray-500">
                 <div className="flex justify-center items-center space-x-6">
-                  <div>Total Reports: {reports.length}</div>
+                  <div>Total {isShowingEntities ? 'Entities' : 'Reports'}: {displayData.length}</div>
                   <div>•</div>
-                  <div>Last Updated: {new Date().toLocaleDateString()}</div>
+                  <div>Last Updated: {new Date().toLocaleDateString('en-US')}</div>
                   <div>•</div>
                   <div>API Status: {error ? '🔴 Error' : '🟢 Online'}</div>
                 </div>
